@@ -1,0 +1,5 @@
+# requirements.txt
+# Add required libraries for Discogs and Tidal integration
+requests
+discogs-client
+tidalapi
