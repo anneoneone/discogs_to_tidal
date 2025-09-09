@@ -71,7 +71,7 @@ class SyncService:
                     sync_stats["all_found_tracks"],
                     progress_callback,
                 )
-            
+
             # Create final result
             result = self._create_sync_result(sync_stats, playlist_name, playlist_id)
 
@@ -340,13 +340,12 @@ class SyncService:
 
         # Get existing tracks to avoid duplicates
         existing_track_ids = self._get_existing_track_ids(playlist)
-        
+
         # Filter out tracks that are already in the playlist
         new_track_ids = [
-            track_id for track_id in track_ids
-            if track_id not in existing_track_ids
+            track_id for track_id in track_ids if track_id not in existing_track_ids
         ]
-        
+
         if new_track_ids:
             # Add only new tracks
             self._add_tracks_to_playlist(playlist, new_track_ids, "existing")
@@ -368,18 +367,18 @@ class SyncService:
                 return {track.id for track in existing_tracks}
         except Exception as e:
             logger.warning(f"Failed to fetch existing tracks: {e}")
-        
+
         return set()
 
     def _load_stored_playlists(self) -> Dict[str, str]:
         """Load stored playlist mappings from file."""
         if not self._playlist_storage_file.exists():
             return {}
-        
+
         try:
-            with open(self._playlist_storage_file, 'r', encoding='utf-8') as f:
+            with open(self._playlist_storage_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            return data.get('playlists', {})
+            return data.get("playlists", {})
         except Exception as e:
             logger.warning(f"Failed to load stored playlists: {e}")
             return {}
@@ -388,21 +387,23 @@ class SyncService:
         """Save playlist name to ID mapping to file."""
         # Ensure output directory exists
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Load existing data
         stored_playlists = self._load_stored_playlists()
         stored_playlists[playlist_name] = playlist_id
-        
+
         # Save updated data
         data = {
-            'playlists': stored_playlists,
-            'last_updated': json.dumps({
-                'timestamp': str(Path().cwd().name),  # Simple timestamp placeholder
-            })
+            "playlists": stored_playlists,
+            "last_updated": json.dumps(
+                {
+                    "timestamp": str(Path().cwd().name),  # Simple timestamp placeholder
+                }
+            ),
         }
-        
+
         try:
-            with open(self._playlist_storage_file, 'w', encoding='utf-8') as f:
+            with open(self._playlist_storage_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
             logger.debug(f"Saved playlist mapping: {playlist_name} -> {playlist_id}")
         except Exception as e:

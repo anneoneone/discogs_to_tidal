@@ -12,7 +12,7 @@ from ..core.config import Config
 from ..core.exceptions import DiscogsToTidalError
 from ..integrations.discogs.client import DiscogsService
 from ..integrations.tidal.auth import TidalAuth
-from .sync_command import execute_sync_command
+from .sync_command import execute_style_sync_command, execute_sync_command
 
 
 @click.group()
@@ -67,6 +67,45 @@ def sync(ctx, playlist_name, folder_id, limit, dry_run):
     """Sync Discogs collection to Tidal playlist."""
     config = ctx.obj["config"]
     execute_sync_command(config, playlist_name, folder_id, limit, dry_run)
+
+
+@cli.command("style-sync")
+@click.option(
+    "--base-name",
+    "-n",
+    default="Discogs",
+    help="Base name for style playlists (e.g., 'Discogs - House')",
+)
+@click.option(
+    "--folder-id",
+    "-f",
+    default=None,
+    type=int,
+    help="Discogs collection folder ID (skip for interactive selection)",
+)
+@click.option(
+    "--limit",
+    "-l",
+    default=None,
+    type=click.IntRange(1, None),
+    help="Maximum number of tracks to process",
+)
+@click.pass_context
+def style_sync(ctx, base_name, folder_id, limit):
+    """Create Tidal playlists organized by styles/subgenres from Discogs.
+
+    This command creates multiple playlists based on the styles (subgenres)
+    found in your Discogs collection. Tracks from albums with multiple
+    styles will be added to multiple playlists.
+
+    Example: If you have albums with styles like "House", "Deep House", and
+    "Techno", this will create playlists named:
+    - "Discogs - House"
+    - "Discogs - Deep House"
+    - "Discogs - Techno"
+    """
+    config = ctx.obj["config"]
+    execute_style_sync_command(config, base_name, folder_id, limit)
 
 
 @cli.command()
