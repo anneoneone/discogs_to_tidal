@@ -46,6 +46,9 @@ test-integration: ## Run integration tests only
 test-cov: ## Run tests with coverage
 	$(PYTHON) -m pytest $(TEST_DIR)/ --cov=$(SRC_DIR) --cov-report=html --cov-report=term
 
+test-coverage: ## Run tests with coverage and XML output for CI
+	$(PYTHON) -m pytest $(TEST_DIR)/ --cov=$(SRC_DIR) --cov-report=html --cov-report=term --cov-report=xml
+
 #> === Quality commands ===
 
 pre-commit: ## Run pre-commit hooks on all files
