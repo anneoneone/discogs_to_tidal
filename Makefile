@@ -26,6 +26,12 @@ install: ## Install the package and runtime dependencies
 install-dev: ## Install the package with development dependencies
 	$(PIP) install -e ".[dev,test]"
 
+dev-setup: ## Set up development environment
+	$(MAKE) venv
+	source .venv/bin/activate
+	$(MAKE) install-dev
+	@echo "Development environment ready!"
+
 #> === Test commands ===
 
 test: ## Run all tests
@@ -52,6 +58,10 @@ format: ## Format code
 	$(BLACK) $(SRC_DIR) $(TEST_DIR)
 	$(ISORT) $(SRC_DIR) $(TEST_DIR)
 
+check: ## Run all checks (lint + test)
+	$(MAKE) lint
+	$(MAKE) test
+
 clean: ## Clean up temporary files
 	find . -type f -name "*.pyc" -delete
 	find . -type d -name "__pycache__" -delete
@@ -69,14 +79,6 @@ docs: ## Generate documentation
 # build: ## Build the package
 # 	$(PYTHON) -m build
 
-check: ## Run all checks (lint + test)
-	$(MAKE) lint
-	$(MAKE) test
-
-dev-setup: ## Set up development environment
-	$(MAKE) install-dev
-	@echo "Development environment ready!"
-
 release-check: ## Check if ready for release
 	$(MAKE) clean
 	$(MAKE) lint
@@ -93,6 +95,9 @@ sync: ## Sync Discogs collection to Tidal
 
 test-auth: ## Test authentication with services
 	.venv/bin/discogs-to-tidal test-auth
+
+tidal-auth: ## Check and setup Tidal authorization (authenticate if needed)
+	.venv/bin/discogs-to-tidal tidal-auth
 
 config: ## Show configuration information
 	.venv/bin/discogs-to-tidal config-info

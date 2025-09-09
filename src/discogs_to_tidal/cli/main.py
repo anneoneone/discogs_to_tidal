@@ -270,5 +270,92 @@ def list_folders(ctx: click.Context) -> None:
         ctx.exit(1)
 
 
+@cli.command()
+@click.pass_context
+def tidal_auth(ctx: click.Context) -> None:
+    """Check Tidal authorization status and authenticate if needed."""
+    config = ctx.obj["config"]
+
+    try:
+        click.echo("🔐 Checking Tidal authorization status...")
+
+        # Initialize Tidal auth
+        tidal_auth = TidalAuth(config)
+
+        # Check for existing valid session
+        session_data = tidal_auth.load_session()
+        if session_data:
+            click.echo("📄 Found existing session data")
+
+            # Try to validate existing session
+            try:
+                session = tidal_auth._try_existing_session()
+                if session:
+                    click.echo("✅ Existing Tidal session is valid!")
+
+                    # Show user info if available
+                    if hasattr(session, "user") and session.user:
+                        try:
+                            user_id = getattr(session.user, "id", "Unknown")
+                            country = getattr(session.user, "country_code", "Unknown")
+                            click.echo(f"👤 Logged in as: {user_id}")
+                            click.echo(f"🌍 Country: {country}")
+                        except Exception:
+                            click.echo("👤 User info not available")
+
+                    click.echo("🎉 No authentication needed - you're all set!")
+                    return
+                else:
+                    click.echo("⚠️ Existing session is invalid or expired")
+            except Exception as e:
+                click.echo(f"⚠️ Could not validate existing session: {e}")
+        else:
+            click.echo("📭 No existing session found")
+
+        # Need to authenticate
+        click.echo("\n🔐 Starting Tidal authentication process...")
+        click.echo("=" * 50)
+
+        # Set up progress callback
+        def auth_progress(message: str, progress: int) -> None:
+            if progress <= 30:
+                click.echo(f"🔐 {message}")
+            elif progress <= 90:
+                click.echo(f"⏳ {message}")
+            else:
+                click.echo(f"✅ {message}")
+
+        tidal_auth.set_progress_callback(auth_progress)
+
+        # Perform authentication
+        session = tidal_auth.authenticate(force_new=True)
+
+        if session and tidal_auth.validate_session(session):
+            click.echo("\n🎉 Tidal authentication successful!")
+
+            # Show user info
+            if hasattr(session, "user") and session.user:
+                try:
+                    user_id = getattr(session.user, "id", "Unknown")
+                    country = getattr(session.user, "country_code", "Unknown")
+                    click.echo(f"👤 Logged in as: {user_id}")
+                    click.echo(f"🌍 Country: {country}")
+                except Exception:
+                    click.echo("👤 User info not available")
+
+            click.echo("💾 Session saved for future use")
+            click.echo("✨ You can now use 'make sync' to sync your music!")
+        else:
+            click.echo("❌ Authentication failed!")
+            ctx.exit(1)
+
+    except DiscogsToTidalError as e:
+        click.echo(f"❌ Authentication error: {e}", err=True)
+        ctx.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Unexpected error: {e}", err=True)
+        ctx.exit(1)
+
+
 if __name__ == "__main__":
     cli()
