@@ -357,5 +357,122 @@ def tidal_auth(ctx: click.Context) -> None:
         ctx.exit(1)
 
 
+@cli.command()
+@click.pass_context
+def discogs_auth(ctx: click.Context) -> None:
+    """Check Discogs authorization status and setup token if needed."""
+    config = ctx.obj["config"]
+
+    try:
+        click.echo("🔐 Checking Discogs authorization status...")
+
+        # Check for existing token
+        existing_token = config.get_discogs_token()
+        if existing_token:
+            click.echo("📄 Found existing Discogs token")
+
+            # Test the existing token
+            click.echo("🔍 Validating existing token...")
+            try:
+                from ..integrations.discogs.client import DiscogsService
+
+                discogs_service = DiscogsService(config)
+                discogs_service.authenticate()
+
+                # Get user info to confirm token works
+                user = discogs_service.user
+                if user:
+                    username = getattr(user, "username", "Unknown")
+                    num_collection = getattr(user, "num_collection", "Unknown")
+                    click.echo("✅ Existing Discogs token is valid!")
+                    click.echo(f"👤 Logged in as: {username}")
+                    click.echo(f"📊 Collection items: {num_collection}")
+                    click.echo("🎉 No authentication needed - you're all set!")
+                    return
+                else:
+                    raise Exception("Could not retrieve user information")
+
+            except Exception as e:
+                click.echo(f"⚠️ Existing token validation failed: {e}")
+                click.echo("🔄 Will prompt for new token...")
+        else:
+            click.echo("📭 No existing Discogs token found")
+
+        # Need to get a new token
+        click.echo("\n🔑 Discogs Personal Access Token Setup")
+        click.echo("=" * 50)
+        click.echo("To use this tool, you need a personal access token from Discogs.")
+        click.echo("")
+        click.echo("📋 Steps to get your token:")
+        click.echo("  1. Go to: https://www.discogs.com/settings/developers")
+        click.echo("  2. Click 'Generate new token'")
+        click.echo("  3. Copy the generated token")
+        click.echo("  4. Paste it below")
+        click.echo("")
+
+        # Prompt for token
+        while True:
+            token = click.prompt(
+                "🔑 Enter your Discogs personal access token", type=str, hide_input=True
+            ).strip()
+
+            if not token:
+                click.echo("❌ Token cannot be empty. Please try again.")
+                continue
+
+            # Validate the token
+            click.echo("🔍 Validating token...")
+            try:
+                # Create a temporary config with the new token
+                test_config = Config(
+                    discogs_token=token,
+                    log_level=config.log_level,
+                    max_tracks=config.max_tracks,
+                )
+
+                from ..integrations.discogs.client import DiscogsService
+
+                discogs_service = DiscogsService(test_config)
+                discogs_service.authenticate()
+
+                # Test by getting user info
+                user = discogs_service.user
+                if not user:
+                    raise Exception("Could not retrieve user information")
+
+                username = getattr(user, "username", "Unknown")
+                num_collection = getattr(user, "num_collection", "Unknown")
+
+                # Token is valid, save it
+                if config.save_discogs_token(token):
+                    click.echo("✅ Token validation successful!")
+                    click.echo(f"👤 Logged in as: {username}")
+                    click.echo(f"📊 Collection items: {num_collection}")
+                    click.echo("💾 Token saved securely for future use")
+                    click.echo("✨ You can now use 'make sync' to sync your music!")
+                    break
+                else:
+                    click.echo("❌ Failed to save token. Please try again.")
+
+            except Exception as e:
+                click.echo(f"❌ Token validation failed: {e}")
+                click.echo("💡 Please check that:")
+                click.echo("  - The token is copied correctly (no extra spaces)")
+                click.echo("  - The token has not expired")
+                click.echo("  - You have an active internet connection")
+
+                retry = click.confirm("🔄 Would you like to try another token?")
+                if not retry:
+                    click.echo("❌ Authentication setup cancelled")
+                    ctx.exit(1)
+
+    except KeyboardInterrupt:
+        click.echo("\n❌ Authentication setup cancelled by user")
+        ctx.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Unexpected error: {e}", err=True)
+        ctx.exit(1)
+
+
 if __name__ == "__main__":
     cli()

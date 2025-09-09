@@ -99,6 +99,9 @@ test-auth: ## Test authentication with services
 tidal-auth: ## Check and setup Tidal authorization (authenticate if needed)
 	.venv/bin/discogs-to-tidal tidal-auth
 
+discogs-auth: ## Check and setup Discogs authorization (prompt for token if needed)
+	.venv/bin/discogs-to-tidal discogs-auth
+
 config: ## Show configuration information
 	.venv/bin/discogs-to-tidal config-info
 
