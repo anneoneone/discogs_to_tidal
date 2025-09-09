@@ -26,6 +26,7 @@ class DiscogsService:
         self._auth = DiscogsAuth(config)
         self._client: Optional[DiscogsClient] = None
         self._user: Any = None  # Discogs user object
+        self._cache_file = Path("output") / "discogs_cache.json"
 
     @property
     def client(self) -> DiscogsClient:
@@ -198,6 +199,11 @@ class DiscogsService:
         albums_with_tracks: List[Tuple[Album, List[Track]]] = []
 
         try:
+            # Load cache
+            cache = self._load_cache()
+            cache_hits = 0
+            cache_misses = 0
+            
             # Find the folder by its ID rather than using array indexing
             target_folder = None
             
@@ -229,11 +235,28 @@ class DiscogsService:
                             f"Fetching release {i}/{len(releases)}: {release_title}"
                         )
                     
+                    # Check if release is cached
+                    release_id = release.release.id
+                    if self._is_release_cached(release_id, cache):
+                        cached_result = self._get_cached_release(release_id, cache)
+                        if cached_result:
+                            album, tracks = cached_result
+                            albums_with_tracks.append((album, tracks))
+                            cache_hits += 1
+                            logger.debug(
+                                f"Cache hit for release {release_id}: {album.title}"
+                            )
+                            continue
+                    
+                    # Process release if not cached
                     album, tracks = self._process_release_to_album(
                         release.release, i, len(releases)
                     )
                     if album and tracks:
                         albums_with_tracks.append((album, tracks))
+                        # Cache the processed release
+                        self._cache_release(release_id, album, tracks, cache)
+                        cache_misses += 1
 
                     # Rate limiting - increase delay after errors
                     time.sleep(0.5)
@@ -242,7 +265,11 @@ class DiscogsService:
                     logger.warning(f"Failed to process release {i}: {e}")
                     continue
 
+            # Save updated cache
+            self._save_cache(cache)
+
             logger.info(f"Total albums fetched: {len(albums_with_tracks)}")
+            logger.info(f"Cache performance: {cache_hits} hits, {cache_misses} misses")
 
             # Save albums metadata to JSON file
             self._save_albums_to_json(albums_with_tracks, folder_id)
@@ -286,6 +313,142 @@ class DiscogsService:
 
         except Exception as e:
             raise SearchError(f"Failed to fetch collection folders: {e}")
+
+    def _load_cache(self) -> Dict[str, Any]:
+        """Load cached release data."""
+        if not self._cache_file.exists():
+            return {}
+        
+        try:
+            with open(self._cache_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.warning(f"Failed to load cache: {e}")
+            return {}
+
+    def _save_cache(self, cache_data: Dict[str, Any]) -> None:
+        """Save cache data to file."""
+        try:
+            # Ensure output directory exists
+            self._cache_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            with open(self._cache_file, 'w', encoding='utf-8') as f:
+                json.dump(cache_data, f, indent=2, ensure_ascii=False)
+            logger.debug(
+                f"Cache saved with {len(cache_data.get('releases', {}))} releases"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to save cache: {e}")
+
+    def _is_release_cached(self, release_id: int, cache: Dict[str, Any]) -> bool:
+        """Check if a release is already cached."""
+        releases_cache = cache.get('releases', {})
+        return str(release_id) in releases_cache
+
+    def _get_cached_release(
+        self, release_id: int, cache: Dict[str, Any]
+    ) -> Optional[Tuple[Album, List[Track]]]:
+        """Get cached release data."""
+        releases_cache = cache.get('releases', {})
+        cached_data = releases_cache.get(str(release_id))
+        
+        if not cached_data:
+            return None
+            
+        try:
+            # Reconstruct Album object from cached data
+            album_data = cached_data['album']
+            
+            # Reconstruct artists
+            artists = []
+            for artist_data in album_data.get('artists', []):
+                artists.append(Artist(
+                    id=artist_data['id'],
+                    name=artist_data['name']
+                ))
+            
+            # Reconstruct Album (primary_artist is a computed property, not constructor param)
+            album = Album(
+                id=album_data['id'],
+                title=album_data['title'],
+                artists=artists,
+                year=album_data.get('year'),
+                genres=album_data.get('genres', [])
+            )
+            
+            # Reconstruct tracks
+            tracks = []
+            for track_data in cached_data.get('tracks', []):
+                # Reconstruct track artists
+                track_artists = []
+                for artist_data in track_data.get('artists', []):
+                    track_artists.append(Artist(
+                        id=artist_data['id'],
+                        name=artist_data['name']
+                    ))
+                
+                # Create track without primary_artist (it's a computed property)
+                track = Track(
+                    title=track_data['title'],
+                    artists=track_artists,
+                    track_number=track_data.get('track_number'),
+                    duration=track_data.get('duration'),
+                    id=track_data.get('id')
+                )
+                tracks.append(track)
+            
+            logger.debug(f"Loaded cached release: {album.title} ({len(tracks)} tracks)")
+            return album, tracks
+            
+        except Exception as e:
+            logger.warning(f"Failed to reconstruct cached release {release_id}: {e}")
+            return None
+
+    def _cache_release(
+        self, release_id: int, album: Album, tracks: List[Track], cache: Dict[str, Any]
+    ) -> None:
+        """Cache a processed release."""
+        if 'releases' not in cache:
+            cache['releases'] = {}
+        
+        # Convert to serializable format
+        album_data = {
+            'id': album.id,
+            'title': album.title,
+            'year': album.year,
+            'genres': album.genres,
+            'is_ep': album.is_ep,
+            'artists': [
+                {'id': artist.id, 'name': artist.name} for artist in album.artists
+            ],
+            'primary_artist': {
+                'id': album.primary_artist.id,
+                'name': album.primary_artist.name
+            } if album.primary_artist else None
+        }
+        
+        tracks_data = []
+        for track in tracks:
+            track_data = {
+                'title': track.title,
+                'track_number': track.track_number,
+                'duration': track.duration,
+                'duration_formatted': track.duration_formatted,
+                'artists': [
+                    {'id': artist.id, 'name': artist.name} for artist in track.artists
+                ],
+                'primary_artist': {
+                    'id': track.primary_artist.id,
+                    'name': track.primary_artist.name
+                } if track.primary_artist else None
+            }
+            tracks_data.append(track_data)
+        
+        cache['releases'][str(release_id)] = {
+            'album': album_data,
+            'tracks': tracks_data,
+            'cached_at': datetime.now().isoformat()
+        }
 
     def _process_release_to_album(
         self, release: Any, release_num: int, total_releases: int
