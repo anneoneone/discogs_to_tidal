@@ -62,13 +62,15 @@ class SyncService:
 
             # Create playlist if we found tracks
             playlist_id = None
-            if sync_stats["found_tracks"]:
+            if sync_stats["all_found_tracks"]:
                 playlist_id = self._handle_playlist_creation(
                     session,
                     playlist_name,
-                    sync_stats["found_tracks"],
+                    sync_stats["all_found_tracks"],
                     progress_callback,
-                )  # Create final result
+                )
+            
+            # Create final result
             result = self._create_sync_result(sync_stats, playlist_name, playlist_id)
 
             self._report_completion(result, len(albums_with_tracks), progress_callback)
