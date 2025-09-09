@@ -82,7 +82,7 @@ def select_discogs_folder(discogs_service: DiscogsService) -> int:
                     )
                     click.echo(folder_info)
                     # Return the actual Discogs folder ID (not the array index)
-                    return actual_folder_id
+                    return int(actual_folder_id)
                 else:
                     valid_indices = list(range(len(folders)))
                     valid_indices_str = ", ".join(map(str, valid_indices))

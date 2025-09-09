@@ -248,10 +248,11 @@ class DiscogsService:
                             continue
 
                     # Process release if not cached
-                    album, tracks = self._process_release_to_album(
+                    result = self._process_release_to_album(
                         release.release, i, len(releases)
                     )
-                    if album and tracks:
+                    if result[0] is not None and result[1]:
+                        album, tracks = result[0], result[1]
                         albums_with_tracks.append((album, tracks))
                         # Cache the processed release
                         self._cache_release(release_id, album, tracks, cache)
@@ -320,7 +321,8 @@ class DiscogsService:
 
         try:
             with open(self._cache_file, "r", encoding="utf-8") as f:
-                return json.load(f)
+                cache_data = json.load(f)
+                return cast(Dict[str, Any], cache_data)
         except Exception as e:
             logger.warning(f"Failed to load cache: {e}")
             return {}

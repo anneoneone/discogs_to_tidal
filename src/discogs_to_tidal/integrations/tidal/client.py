@@ -389,7 +389,7 @@ class TidalService:
             )
             # Add to cache for future lookups
             playlist_cache[name] = playlist
-            return playlist  # type: ignore[no-any-return]
+            return playlist
         except Exception as e:
             raise SyncError(f"Failed to create playlist '{name}': {e}")
 
@@ -433,7 +433,7 @@ class TidalService:
         try:
             if tidal_tracks:
                 tidal_track_ids = [track.id for track in tidal_tracks]
-                playlist.add(tidal_track_ids)  # type: ignore[attr-defined]
+                playlist.add(tidal_track_ids)
                 added_count = len(tidal_tracks)
                 logger.info(f"    ✅ Added {added_count} tracks to playlist in batch")
             else:
@@ -445,7 +445,7 @@ class TidalService:
 
             for i, tidal_track in enumerate(tidal_tracks, 1):
                 try:
-                    playlist.add([tidal_track.id])  # type: ignore[attr-defined]
+                    playlist.add([tidal_track.id])
                     added_count += 1
                     logger.debug(f"    ✅ Added track {i}/{len(tidal_tracks)}")
                 except Exception as track_error:

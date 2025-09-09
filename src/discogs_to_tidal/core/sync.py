@@ -4,7 +4,7 @@ Core synchronization service with album-based optimization.
 import json
 import logging
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
 from ..integrations.discogs.client import DiscogsService
 from ..integrations.tidal.auth import TidalAuth
@@ -378,7 +378,7 @@ class SyncService:
         try:
             with open(self._playlist_storage_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            return data.get("playlists", {})
+            return cast(Dict[str, str], data.get("playlists", {}))
         except Exception as e:
             logger.warning(f"Failed to load stored playlists: {e}")
             return {}

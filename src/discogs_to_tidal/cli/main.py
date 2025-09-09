@@ -3,6 +3,7 @@ Command-line interface for Discogs to Tidal sync.
 """
 import logging
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -63,7 +64,9 @@ def cli(ctx: click.Context, verbose: bool, debug: bool) -> None:
     "--dry-run", is_flag=True, help="Show what would be synced without making changes"
 )
 @click.pass_context
-def sync(ctx, playlist_name, folder_id, limit, dry_run):
+def sync(
+    ctx: Any, playlist_name: str, folder_id: int, limit: int, dry_run: bool
+) -> None:
     """Sync Discogs collection to Tidal playlist."""
     config = ctx.obj["config"]
     execute_sync_command(config, playlist_name, folder_id, limit, dry_run)
@@ -91,7 +94,7 @@ def sync(ctx, playlist_name, folder_id, limit, dry_run):
     help="Maximum number of tracks to process",
 )
 @click.pass_context
-def style_sync(ctx, base_name, folder_id, limit):
+def style_sync(ctx: Any, base_name: str, folder_id: int, limit: int) -> None:
     """Create Tidal playlists organized by styles/subgenres from Discogs.
 
     This command creates multiple playlists based on the styles (subgenres)
