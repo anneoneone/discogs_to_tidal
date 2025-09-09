@@ -92,7 +92,7 @@ class DiscogsService:
     def get_collection_tracks(
         self,
         folder_id: int = 0,
-        progress_callback: Optional[Callable[[str], None]] = None
+        progress_callback: Optional[Callable[[str], None]] = None,
     ) -> List[Track]:
         """
         Get all tracks from user's Discogs collection.
@@ -121,11 +121,10 @@ class DiscogsService:
                 if f.id == folder_id:
                     folder = f
                     break
-            
+
             if folder is None:
                 available_folders = [
-                    f"ID {f.id}: {f.name}"
-                    for f in self._user.collection_folders
+                    f"ID {f.id}: {f.name}" for f in self._user.collection_folders
                 ]
                 raise SearchError(
                     f"Invalid folder ID {folder_id}. Available folders: "
@@ -148,7 +147,7 @@ class DiscogsService:
                         progress_callback(
                             f"Fetching release {i}/{len(releases)}: {release_title}"
                         )
-                    
+
                     release_tracks = self._process_release(
                         release.release, i, len(releases)
                     )
@@ -174,7 +173,7 @@ class DiscogsService:
     def get_collection_albums(
         self,
         folder_id: int = 0,
-        progress_callback: Optional[Callable[[str], None]] = None
+        progress_callback: Optional[Callable[[str], None]] = None,
     ) -> List[tuple]:
         """
         Get all albums from user's Discogs collection with their tracks.
@@ -203,15 +202,15 @@ class DiscogsService:
             cache = self._load_cache()
             cache_hits = 0
             cache_misses = 0
-            
+
             # Find the folder by its ID rather than using array indexing
             target_folder = None
-            
+
             for folder in self._user.collection_folders:
                 if folder.id == folder_id:
                     target_folder = folder
                     break
-            
+
             if target_folder is None:
                 available_folders = [
                     f"ID {folder.id}: {folder.name} ({folder.count} items)"
@@ -234,7 +233,7 @@ class DiscogsService:
                         progress_callback(
                             f"Fetching release {i}/{len(releases)}: {release_title}"
                         )
-                    
+
                     # Check if release is cached
                     release_id = release.release.id
                     if self._is_release_cached(release_id, cache):
@@ -247,7 +246,7 @@ class DiscogsService:
                                 f"Cache hit for release {release_id}: {album.title}"
                             )
                             continue
-                    
+
                     # Process release if not cached
                     album, tracks = self._process_release_to_album(
                         release.release, i, len(releases)
@@ -318,9 +317,9 @@ class DiscogsService:
         """Load cached release data."""
         if not self._cache_file.exists():
             return {}
-        
+
         try:
-            with open(self._cache_file, 'r', encoding='utf-8') as f:
+            with open(self._cache_file, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
             logger.warning(f"Failed to load cache: {e}")
@@ -331,8 +330,8 @@ class DiscogsService:
         try:
             # Ensure output directory exists
             self._cache_file.parent.mkdir(parents=True, exist_ok=True)
-            
-            with open(self._cache_file, 'w', encoding='utf-8') as f:
+
+            with open(self._cache_file, "w", encoding="utf-8") as f:
                 json.dump(cache_data, f, indent=2, ensure_ascii=False)
             logger.debug(
                 f"Cache saved with {len(cache_data.get('releases', {}))} releases"
@@ -342,65 +341,61 @@ class DiscogsService:
 
     def _is_release_cached(self, release_id: int, cache: Dict[str, Any]) -> bool:
         """Check if a release is already cached."""
-        releases_cache = cache.get('releases', {})
+        releases_cache = cache.get("releases", {})
         return str(release_id) in releases_cache
 
     def _get_cached_release(
         self, release_id: int, cache: Dict[str, Any]
     ) -> Optional[Tuple[Album, List[Track]]]:
         """Get cached release data."""
-        releases_cache = cache.get('releases', {})
+        releases_cache = cache.get("releases", {})
         cached_data = releases_cache.get(str(release_id))
-        
+
         if not cached_data:
             return None
-            
+
         try:
             # Reconstruct Album object from cached data
-            album_data = cached_data['album']
-            
+            album_data = cached_data["album"]
+
             # Reconstruct artists
             artists = []
-            for artist_data in album_data.get('artists', []):
-                artists.append(Artist(
-                    id=artist_data['id'],
-                    name=artist_data['name']
-                ))
-            
-            # Reconstruct Album (primary_artist is a computed property, not constructor param)
+            for artist_data in album_data.get("artists", []):
+                artists.append(Artist(id=artist_data["id"], name=artist_data["name"]))
+
+            # Reconstruct Album (primary_artist is a computed property)
             album = Album(
-                id=album_data['id'],
-                title=album_data['title'],
+                id=album_data["id"],
+                title=album_data["title"],
                 artists=artists,
-                year=album_data.get('year'),
-                genres=album_data.get('genres', []),
-                styles=album_data.get('styles', [])
+                year=album_data.get("year"),
+                genres=album_data.get("genres", []),
+                styles=album_data.get("styles", []),
             )
-            
+
             # Reconstruct tracks
             tracks = []
-            for track_data in cached_data.get('tracks', []):
+            for track_data in cached_data.get("tracks", []):
                 # Reconstruct track artists
                 track_artists = []
-                for artist_data in track_data.get('artists', []):
-                    track_artists.append(Artist(
-                        id=artist_data['id'],
-                        name=artist_data['name']
-                    ))
-                
+                for artist_data in track_data.get("artists", []):
+                    track_artists.append(
+                        Artist(id=artist_data["id"], name=artist_data["name"])
+                    )
+
                 # Create track without primary_artist (it's a computed property)
                 track = Track(
-                    title=track_data['title'],
+                    title=track_data["title"],
                     artists=track_artists,
-                    track_number=track_data.get('track_number'),
-                    duration=track_data.get('duration'),
-                    id=track_data.get('id')
+                    track_number=track_data.get("track_number"),
+                    duration=track_data.get("duration"),
+                    id=track_data.get("id"),
                 )
                 tracks.append(track)
-            
+
             logger.debug(f"Loaded cached release: {album.title} ({len(tracks)} tracks)")
             return album, tracks
-            
+
         except Exception as e:
             logger.warning(f"Failed to reconstruct cached release {release_id}: {e}")
             return None
@@ -409,47 +404,51 @@ class DiscogsService:
         self, release_id: int, album: Album, tracks: List[Track], cache: Dict[str, Any]
     ) -> None:
         """Cache a processed release."""
-        if 'releases' not in cache:
-            cache['releases'] = {}
-        
+        if "releases" not in cache:
+            cache["releases"] = {}
+
         # Convert to serializable format
         album_data = {
-            'id': album.id,
-            'title': album.title,
-            'year': album.year,
-            'genres': album.genres,
-            'styles': album.styles,
-            'is_ep': album.is_ep,
-            'artists': [
-                {'id': artist.id, 'name': artist.name} for artist in album.artists
+            "id": album.id,
+            "title": album.title,
+            "year": album.year,
+            "genres": album.genres,
+            "styles": album.styles,
+            "is_ep": album.is_ep,
+            "artists": [
+                {"id": artist.id, "name": artist.name} for artist in album.artists
             ],
-            'primary_artist': {
-                'id': album.primary_artist.id,
-                'name': album.primary_artist.name
-            } if album.primary_artist else None
+            "primary_artist": {
+                "id": album.primary_artist.id,
+                "name": album.primary_artist.name,
+            }
+            if album.primary_artist
+            else None,
         }
-        
+
         tracks_data = []
         for track in tracks:
             track_data = {
-                'title': track.title,
-                'track_number': track.track_number,
-                'duration': track.duration,
-                'duration_formatted': track.duration_formatted,
-                'artists': [
-                    {'id': artist.id, 'name': artist.name} for artist in track.artists
+                "title": track.title,
+                "track_number": track.track_number,
+                "duration": track.duration,
+                "duration_formatted": track.duration_formatted,
+                "artists": [
+                    {"id": artist.id, "name": artist.name} for artist in track.artists
                 ],
-                'primary_artist': {
-                    'id': track.primary_artist.id,
-                    'name': track.primary_artist.name
-                } if track.primary_artist else None
+                "primary_artist": {
+                    "id": track.primary_artist.id,
+                    "name": track.primary_artist.name,
+                }
+                if track.primary_artist
+                else None,
             }
             tracks_data.append(track_data)
-        
-        cache['releases'][str(release_id)] = {
-            'album': album_data,
-            'tracks': tracks_data,
-            'cached_at': datetime.now().isoformat()
+
+        cache["releases"][str(release_id)] = {
+            "album": album_data,
+            "tracks": tracks_data,
+            "cached_at": datetime.now().isoformat(),
         }
 
     def _process_release_to_album(
