@@ -78,3 +78,6 @@ discogs_tracks.json
 discogs_tracks_flat.json
 tidal_token.json
 ~/Documents/tidal_session.json
+
+# Secure token storage directory
+.tokens/
