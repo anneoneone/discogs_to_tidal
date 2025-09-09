@@ -7,7 +7,8 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from discogs_to_tidal.core.config import Config
 from discogs_to_tidal.core.exceptions import ConfigurationError
 

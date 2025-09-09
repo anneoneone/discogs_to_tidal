@@ -4,7 +4,8 @@ Unit tests for core.models module.
 
 import unittest
 from datetime import datetime
-from discogs_to_tidal.core.models import Artist, Album, Track, Playlist, SyncResult
+
+from discogs_to_tidal.core.models import Album, Artist, Playlist, SyncResult, Track
 
 
 class TestArtist(unittest.TestCase):
