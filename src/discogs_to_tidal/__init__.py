@@ -27,23 +27,22 @@ __author__ = "Your Name"
 __email__ = "your.email@example.com"
 __license__ = "MIT"
 
+# CLI interface
+from .cli import cli
 from .core.config import Config
-from .core.models import Track, Album, Artist, Playlist, SyncResult
 from .core.exceptions import (
-    DiscogsToTidalError,
     AuthenticationError,
-    SearchError,
-    SyncError,
     ConfigurationError,
+    DiscogsToTidalError,
+    RateLimitError,
+    SearchError,
     StorageError,
-    RateLimitError
+    SyncError,
 )
+from .core.models import Album, Artist, Playlist, SyncResult, Track
 
 # Integration services
 from .integrations import DiscogsService, TidalService
-
-# CLI interface
-from .cli import cli
 
 __all__ = [
     "__version__",
