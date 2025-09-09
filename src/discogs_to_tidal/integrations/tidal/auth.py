@@ -246,6 +246,7 @@ class TidalAuth:
         if not force_new:
             session = self._try_existing_session()
             if session:
+                self._session = session  # Store session for future use
                 self._notify_progress(
                     "Authentication successful (existing session)", 100
                 )
@@ -257,7 +258,9 @@ class TidalAuth:
 
         # Start new authentication
         self._notify_progress("Starting new authentication...", 10)
-        return self._authenticate_oauth(timeout_seconds, auto_open_browser)
+        session = self._authenticate_oauth(timeout_seconds, auto_open_browser)
+        self._session = session  # Store the new session
+        return session
 
     def _try_existing_session(self) -> Optional[tidalapi.Session]:
         """Try to load and validate existing session."""
