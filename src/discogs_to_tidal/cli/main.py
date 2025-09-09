@@ -443,16 +443,13 @@ def discogs_auth(ctx: click.Context) -> None:
                 username = getattr(user, "username", "Unknown")
                 num_collection = getattr(user, "num_collection", "Unknown")
 
-                # Token is valid, save it
-                if config.save_discogs_token(token):
-                    click.echo("✅ Token validation successful!")
-                    click.echo(f"👤 Logged in as: {username}")
-                    click.echo(f"📊 Collection items: {num_collection}")
-                    click.echo("💾 Token saved securely for future use")
-                    click.echo("✨ You can now use 'make sync' to sync your music!")
-                    break
-                else:
-                    click.echo("❌ Failed to save token. Please try again.")
+                # Token is valid and session was saved by authentication process
+                click.echo("✅ Token validation successful!")
+                click.echo(f"👤 Logged in as: {username}")
+                click.echo(f"📊 Collection items: {num_collection}")
+                click.echo("💾 Session saved securely for future use")
+                click.echo("✨ You can now use 'make sync' to sync your music!")
+                break
 
             except Exception as e:
                 click.echo(f"❌ Token validation failed: {e}")

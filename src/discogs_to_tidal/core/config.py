@@ -4,7 +4,6 @@ Configuration management for discogs_to_tidal.
 import json
 import logging
 import os
-import stat
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional, cast
@@ -197,73 +196,18 @@ class Config:
     def load_tokens_from_storage(self) -> None:
         """Load tokens from secure storage if available."""
         try:
-            # Load Discogs token
-            discogs_token_file = self.tokens_dir / "discogs_token.json"
-            if discogs_token_file.exists() and not self.discogs_token:
-                with open(discogs_token_file, "r") as f:
-                    token_data: Dict[str, Any] = json.load(f)
-                    token = token_data.get("token")
+            # Load Discogs token from session file
+            discogs_session_file = self.tokens_dir / "discogs_session.json"
+            if discogs_session_file.exists() and not self.discogs_token:
+                with open(discogs_session_file, "r") as f:
+                    session_data: Dict[str, Any] = json.load(f)
+                    token = session_data.get("personal_token")
                     if token and isinstance(token, str):
                         self.discogs_token = token
-                        logger.info("Loaded Discogs token from secure storage")
+                        logger.info("Loaded Discogs token from session storage")
 
         except Exception as e:
             logger.warning(f"Failed to load tokens from storage: {e}")
-
-    def save_discogs_token(self, token: str) -> bool:
-        """
-        Save Discogs token to secure storage.
-
-        Args:
-            token: The Discogs personal token
-
-        Returns:
-            True if saved successfully, False otherwise
-        """
-        try:
-            self.ensure_directories()
-
-            token_file = self.tokens_dir / "discogs_token.json"
-            token_data = {
-                "token": token,
-                "service": "discogs",
-                "token_type": "personal_token",
-                "created_at": int(os.path.getmtime(__file__)),
-            }
-
-            # Write atomically with secure permissions
-            import tempfile
-
-            temp_fd, temp_path = tempfile.mkstemp(dir=self.tokens_dir, suffix=".tmp")
-
-            try:
-                with os.fdopen(temp_fd, "w") as temp_file:
-                    json.dump(token_data, temp_file, indent=2)
-
-                # Set secure permissions before moving
-                if os.name == "posix":
-                    os.chmod(temp_path, stat.S_IRUSR | stat.S_IWUSR)  # 600
-
-                # Atomic move
-                os.replace(temp_path, token_file)
-
-                # Update current config
-                self.discogs_token = token
-
-                logger.info(f"Discogs token saved securely to: {token_file}")
-                return True
-
-            except Exception:
-                # Clean up temp file on error
-                try:
-                    os.unlink(temp_path)
-                except FileNotFoundError:
-                    pass
-                raise
-
-        except Exception as e:
-            logger.error(f"Failed to save Discogs token: {e}")
-            return False
 
     def get_discogs_token(self) -> Optional[str]:
         """
@@ -285,19 +229,19 @@ class Config:
             self.discogs_token = env_token
             return env_token
 
-        # 3. Check secure storage
+        # 3. Check secure session storage
         try:
-            discogs_token_file = self.tokens_dir / "discogs_token.json"
-            if discogs_token_file.exists():
-                with open(discogs_token_file, "r") as f:
-                    token_data: Dict[str, Any] = json.load(f)
-                    token = token_data.get("token")
+            discogs_session_file = self.tokens_dir / "discogs_session.json"
+            if discogs_session_file.exists():
+                with open(discogs_session_file, "r") as f:
+                    session_data: Dict[str, Any] = json.load(f)
+                    token = session_data.get("personal_token")
                     if token and isinstance(token, str):
                         self.discogs_token = token
-                        logger.info("Loaded Discogs token from secure storage")
+                        logger.info("Loaded Discogs token from session storage")
                         return cast(str, token)
         except Exception as e:
-            logger.warning(f"Failed to load Discogs token from storage: {e}")
+            logger.warning(f"Failed to load Discogs token from session storage: {e}")
 
         return None
 

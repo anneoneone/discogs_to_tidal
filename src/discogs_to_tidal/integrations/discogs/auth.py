@@ -226,8 +226,7 @@ class DiscogsAuth:
                 self._last_auth_status = DiscogsAuthStatus.INVALID_TOKEN
                 return None
 
-            # Save the token for future use
-            self.config.save_discogs_token(token)
+            # Update config with the token (session will be saved separately)
             self.config.discogs_token = token
 
         try:
