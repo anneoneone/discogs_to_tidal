@@ -1,9 +1,10 @@
 """
 Core synchronization service with album-based optimization.
 """
+import json
 import logging
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from ..integrations.discogs.client import DiscogsService
 from ..integrations.tidal.auth import TidalAuth
@@ -27,6 +28,7 @@ class SyncService:
         self.tidal_auth = tidal_auth
         self.output_dir = output_dir or Path.cwd() / "output"
         self.search_service: Optional[TidalSearchService] = None
+        self._playlist_storage_file = self.output_dir / "tidal_playlists.json"
 
     def sync_collection(
         self,
@@ -299,11 +301,33 @@ class SyncService:
     def _find_existing_playlist(
         self, session: Any, playlist_name: str
     ) -> Optional[Any]:
-        """Find an existing playlist by name."""
+        """Find an existing playlist by name, checking stored ID first."""
+        # First, try to find playlist using stored ID
+        stored_id = self._get_stored_playlist_id(playlist_name)
+        if stored_id:
+            try:
+                # Try to get playlist directly by ID
+                playlist = session.playlist(stored_id)
+                if playlist and playlist.name == playlist_name:
+                    logger.debug(f"Found playlist using stored ID: {stored_id}")
+                    return playlist
+                else:
+                    logger.warning(
+                        f"Stored playlist ID {stored_id} is invalid or name changed, "
+                        f"falling back to search"
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to access playlist by stored ID {stored_id}: {e}"
+                )
+
+        # Fallback: search through all playlists
         try:
             existing_playlists = session.user.playlists()
             for playlist in existing_playlists:
                 if playlist.name == playlist_name:
+                    # Update stored mapping if we found it through search
+                    self._save_playlist_mapping(playlist_name, playlist.id)
                     return playlist
         except Exception as e:
             logger.warning(f"Failed to fetch existing playlists: {e}")
@@ -311,16 +335,83 @@ class SyncService:
         return None
 
     def _update_existing_playlist(self, playlist: Any, track_ids: List[str]) -> str:
-        """Update an existing playlist with new tracks."""
-        logger.info(f"Updating existing playlist: {playlist.name}")
+        """Update an existing playlist by adding new tracks (without clearing)."""
+        logger.info(f"Adding tracks to existing playlist: {playlist.name}")
 
-        # Clear existing tracks
-        self._clear_playlist_tracks(playlist)
-
-        # Add new tracks
-        self._add_tracks_to_playlist(playlist, track_ids, "existing")
+        # Get existing tracks to avoid duplicates
+        existing_track_ids = self._get_existing_track_ids(playlist)
+        
+        # Filter out tracks that are already in the playlist
+        new_track_ids = [
+            track_id for track_id in track_ids
+            if track_id not in existing_track_ids
+        ]
+        
+        if new_track_ids:
+            # Add only new tracks
+            self._add_tracks_to_playlist(playlist, new_track_ids, "existing")
+            skipped_count = len(track_ids) - len(new_track_ids)
+            logger.info(
+                f"Added {len(new_track_ids)} new tracks to existing playlist "
+                f"(skipped {skipped_count} duplicates)"
+            )
+        else:
+            logger.info("All tracks already exist in the playlist, no tracks added")
 
         return playlist.id  # type: ignore[no-any-return]
+
+    def _get_existing_track_ids(self, playlist: Any) -> set:
+        """Get set of existing track IDs in a playlist."""
+        try:
+            existing_tracks = playlist.tracks()
+            if existing_tracks:
+                return {track.id for track in existing_tracks}
+        except Exception as e:
+            logger.warning(f"Failed to fetch existing tracks: {e}")
+        
+        return set()
+
+    def _load_stored_playlists(self) -> Dict[str, str]:
+        """Load stored playlist mappings from file."""
+        if not self._playlist_storage_file.exists():
+            return {}
+        
+        try:
+            with open(self._playlist_storage_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return data.get('playlists', {})
+        except Exception as e:
+            logger.warning(f"Failed to load stored playlists: {e}")
+            return {}
+
+    def _save_playlist_mapping(self, playlist_name: str, playlist_id: str) -> None:
+        """Save playlist name to ID mapping to file."""
+        # Ensure output directory exists
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Load existing data
+        stored_playlists = self._load_stored_playlists()
+        stored_playlists[playlist_name] = playlist_id
+        
+        # Save updated data
+        data = {
+            'playlists': stored_playlists,
+            'last_updated': json.dumps({
+                'timestamp': str(Path().cwd().name),  # Simple timestamp placeholder
+            })
+        }
+        
+        try:
+            with open(self._playlist_storage_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            logger.debug(f"Saved playlist mapping: {playlist_name} -> {playlist_id}")
+        except Exception as e:
+            logger.warning(f"Failed to save playlist mapping: {e}")
+
+    def _get_stored_playlist_id(self, playlist_name: str) -> Optional[str]:
+        """Get stored playlist ID for a given playlist name."""
+        stored_playlists = self._load_stored_playlists()
+        return stored_playlists.get(playlist_name)
 
     def _create_new_playlist(
         self, session: Any, playlist_name: str, track_ids: List[str]
@@ -332,21 +423,13 @@ class SyncService:
             playlist_name, "Created by discogs-to-tidal"
         )
 
+        # Save playlist mapping for future reference
+        self._save_playlist_mapping(playlist_name, new_playlist.id)
+
         # Add tracks
         self._add_tracks_to_playlist(new_playlist, track_ids, "new")
 
         return new_playlist.id  # type: ignore[no-any-return]
-
-    def _clear_playlist_tracks(self, playlist: Any) -> None:
-        """Clear all tracks from an existing playlist."""
-        try:
-            existing_tracks = playlist.tracks()
-            if existing_tracks:
-                existing_track_ids = [track.id for track in existing_tracks]
-                playlist.remove(existing_track_ids)
-                logger.debug(f"Cleared {len(existing_track_ids)} existing tracks")
-        except Exception as e:
-            logger.warning(f"Failed to clear existing playlist: {e}")
 
     def _add_tracks_to_playlist(
         self, playlist: Any, track_ids: List[str], playlist_type: str

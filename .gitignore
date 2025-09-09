@@ -79,7 +79,7 @@ discogs_tracks_flat.json
 tidal_token.json
 ~/Documents/tidal_session.json
 
-# Output directory for generated files
+# Output files with user-specific data
 output/
 
 # Secure token storage directory
