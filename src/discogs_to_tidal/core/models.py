@@ -26,10 +26,13 @@ class Album:
     year: Optional[int] = None
     id: Optional[str] = None
     genres: Optional[List[str]] = None
+    styles: Optional[List[str]] = None
 
     def __post_init__(self) -> None:
         if self.genres is None:
             self.genres = []
+        if self.styles is None:
+            self.styles = []
 
     @property
     def artist_names(self) -> List[str]:

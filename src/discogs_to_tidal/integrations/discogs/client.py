@@ -373,7 +373,8 @@ class DiscogsService:
                 title=album_data['title'],
                 artists=artists,
                 year=album_data.get('year'),
-                genres=album_data.get('genres', [])
+                genres=album_data.get('genres', []),
+                styles=album_data.get('styles', [])
             )
             
             # Reconstruct tracks
@@ -417,6 +418,7 @@ class DiscogsService:
             'title': album.title,
             'year': album.year,
             'genres': album.genres,
+            'styles': album.styles,
             'is_ep': album.is_ep,
             'artists': [
                 {'id': artist.id, 'name': artist.name} for artist in album.artists
@@ -476,6 +478,7 @@ class DiscogsService:
                 year=release_data.get("year"),
                 id=str(release.id),
                 genres=release_data.get("genres", []),
+                styles=release_data.get("styles", []),
             )
 
             # Process each track with safe tracklist access
@@ -528,6 +531,7 @@ class DiscogsService:
                 year=release_data.get("year"),
                 id=str(release.id),
                 genres=release_data.get("genres", []),
+                styles=release_data.get("styles", []),
             )
 
             # Process each track with safe tracklist access
@@ -711,11 +715,10 @@ class DiscogsService:
                     if track.primary_artist
                     else None,
                     "album": {
-                        "title": track.album_title
-                        if hasattr(track, "album_title")
-                        else None,
-                        "year": getattr(track, "year", None),
-                        "genres": getattr(track, "genres", []),
+                        "title": track.album.title if track.album else None,
+                        "year": track.album.year if track.album else None,
+                        "genres": track.album.genres if track.album else [],
+                        "styles": track.album.styles if track.album else [],
                     },
                 }
                 metadata["tracks"].append(track_data)
@@ -760,6 +763,7 @@ class DiscogsService:
                         "title": album.title,
                         "year": album.year,
                         "genres": album.genres,
+                        "styles": album.styles,
                     },
                     "artists": [
                         {"id": artist.id, "name": artist.name}
