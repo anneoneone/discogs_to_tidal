@@ -112,7 +112,9 @@ class SyncService:
                     f"Fetching Discogs collection (Folder ID: {folder_id})..."
                 )
 
-        albums_with_tracks = self.discogs_service.get_collection_albums(folder_id)
+        albums_with_tracks = self.discogs_service.get_collection_albums(
+            folder_id, progress_callback
+        )
 
         if albums_with_tracks:
             logger.info(f"Processing {len(albums_with_tracks)} albums from Discogs")

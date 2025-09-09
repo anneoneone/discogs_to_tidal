@@ -88,12 +88,17 @@ class DiscogsService:
             self._user = None
         return success
 
-    def get_collection_tracks(self, folder_id: int = 0) -> List[Track]:
+    def get_collection_tracks(
+        self,
+        folder_id: int = 0,
+        progress_callback: Optional[Callable[[str], None]] = None
+    ) -> List[Track]:
         """
         Get all tracks from user's Discogs collection.
 
         Args:
             folder_id: Collection folder ID (0 = default "All" folder)
+            progress_callback: Optional callback for real-time progress updates
 
         Returns:
             List of Track objects
@@ -131,6 +136,13 @@ class DiscogsService:
                     break
 
                 try:
+                    # Show real-time progress for each release
+                    if progress_callback:
+                        release_title = release.release.title
+                        progress_callback(
+                            f"Fetching release {i}/{len(releases)}: {release_title}"
+                        )
+                    
                     release_tracks = self._process_release(
                         release.release, i, len(releases)
                     )
@@ -153,7 +165,11 @@ class DiscogsService:
         except Exception as e:
             raise SearchError(f"Failed to fetch collection: {e}")
 
-    def get_collection_albums(self, folder_id: int = 0) -> List[tuple]:
+    def get_collection_albums(
+        self,
+        folder_id: int = 0,
+        progress_callback: Optional[Callable[[str], None]] = None
+    ) -> List[tuple]:
         """
         Get all albums from user's Discogs collection with their tracks.
 
@@ -161,6 +177,7 @@ class DiscogsService:
 
         Args:
             folder_id: Collection folder ID (0 = default "All" folder)
+            progress_callback: Optional callback for real-time progress updates
 
         Returns:
             List of (Album, List[Track]) tuples
@@ -194,6 +211,13 @@ class DiscogsService:
 
             for i, release in enumerate(releases, 1):
                 try:
+                    # Show real-time progress for each release
+                    if progress_callback:
+                        release_title = release.release.title
+                        progress_callback(
+                            f"Fetching release {i}/{len(releases)}: {release_title}"
+                        )
+                    
                     album, tracks = self._process_release_to_album(
                         release.release, i, len(releases)
                     )
@@ -256,6 +280,7 @@ class DiscogsService:
         self, release: Any, release_num: int, total_releases: int
     ) -> Tuple[Optional[Album], List[Track]]:
         """Process a single release and return album with tracks."""
+        # Reduced logging since we now have real-time progress via callback
         logger.debug(
             f"Processing release {release_num}/{total_releases}: {release.title}"
         )
@@ -305,7 +330,8 @@ class DiscogsService:
         self, release: Any, release_num: int, total_releases: int
     ) -> List[Track]:
         """Process a single release and extract tracks."""
-        logger.info(
+        # Reduced logging since we now have real-time progress via callback
+        logger.debug(
             f"Processing release {release_num}/{total_releases}: {release.title}"
         )
 
