@@ -9,7 +9,7 @@ import tempfile
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, cast
+from typing import Any, Callable, Dict, Optional
 
 from discogs_client import Client as DiscogsClient  # type: ignore[import-untyped]
 

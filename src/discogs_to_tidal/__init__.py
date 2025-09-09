@@ -9,11 +9,11 @@ This package provides functionality to:
 
 Example:
     Basic usage from command line:
-    
+
     $ discogs-to-tidal sync --playlist "My Collection"
-    
+
     Programmatic usage:
-    
+
     >>> from discogs_to_tidal import DiscogsService, TidalService, Config
     >>> config = Config.from_env()
     >>> discogs = DiscogsService(config)

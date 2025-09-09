@@ -3,6 +3,10 @@
 
 PYTHON := .venv/bin/python
 PIP := .venv/bin/pip
+BLACK := .venv/bin/black
+ISORT := .venv/bin/isort
+FLAKE8 := .venv/bin/flake8
+MYPY := .venv/bin/mypy
 SRC_DIR := src
 TEST_DIR := tests
 
@@ -39,14 +43,14 @@ test-cov: ## Run tests with coverage
 #> === Quality commands ===
 
 lint: ## Run linting checks
-	black --check $(SRC_DIR) $(TEST_DIR)
-	isort --check-only $(SRC_DIR) $(TEST_DIR)
-# 	flake8 $(SRC_DIR) $(TEST_DIR)
-	mypy $(SRC_DIR)
+	$(BLACK) --check $(SRC_DIR) $(TEST_DIR)
+	$(ISORT) --check-only $(SRC_DIR) $(TEST_DIR)
+	$(FLAKE8) $(SRC_DIR) $(TEST_DIR)
+	$(MYPY) $(SRC_DIR)
 
 format: ## Format code
-	black $(SRC_DIR) $(TEST_DIR)
-	isort $(SRC_DIR) $(TEST_DIR)
+	$(BLACK) $(SRC_DIR) $(TEST_DIR)
+	$(ISORT) $(SRC_DIR) $(TEST_DIR)
 
 clean: ## Clean up temporary files
 	find . -type f -name "*.pyc" -delete
