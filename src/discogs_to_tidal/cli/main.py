@@ -3,7 +3,6 @@ Command-line interface for Discogs to Tidal sync.
 """
 import logging
 from pathlib import Path
-from typing import Optional
 
 import click
 
@@ -11,9 +10,9 @@ from discogs_to_tidal.integrations.tidal.client import TidalService
 
 from ..core.config import Config
 from ..core.exceptions import DiscogsToTidalError
-from ..core.sync import SyncService
 from ..integrations.discogs.client import DiscogsService
 from ..integrations.tidal.auth import TidalAuth
+from .sync_command import execute_sync_command
 
 
 @click.group()
@@ -49,9 +48,9 @@ def cli(ctx: click.Context, verbose: bool, debug: bool) -> None:
 @click.option(
     "--folder-id",
     "-f",
-    default=0,
+    default=None,
     type=int,
-    help="Discogs collection folder ID (0 = All)",
+    help="Discogs collection folder ID (skip for interactive selection)",
 )
 @click.option(
     "--limit",
@@ -64,92 +63,10 @@ def cli(ctx: click.Context, verbose: bool, debug: bool) -> None:
     "--dry-run", is_flag=True, help="Show what would be synced without making changes"
 )
 @click.pass_context
-def sync(
-    ctx: click.Context,
-    playlist_name: str,
-    folder_id: int,
-    limit: Optional[int],
-    dry_run: bool,
-) -> None:
+def sync(ctx, playlist_name, folder_id, limit, dry_run):
     """Sync Discogs collection to Tidal playlist."""
     config = ctx.obj["config"]
-
-    click.echo(f"🎵 Syncing Discogs collection to Tidal playlist: {playlist_name}")
-    click.echo(f"📁 Folder ID: {folder_id}")
-    if limit:
-        click.echo(f"🔢 Limit: {limit} tracks")
-    if dry_run:
-        click.echo("🧪 Dry run mode: No tracks will be added")
-
-    try:
-        # Initialize services
-        discogs_service = DiscogsService(config)
-        tidal_auth = TidalAuth(config)
-        sync_service = SyncService(discogs_service, tidal_auth)
-
-        # Set up progress callback for better UX
-        def auth_progress(message: str, progress: int) -> None:
-            if progress <= 30:
-                click.echo(f"🔐 {message}")
-            elif progress <= 90:
-                click.echo(f"⏳ {message}")
-            else:
-                click.echo(f"✅ {message}")
-
-        # Pre-authenticate to provide better user experience
-        click.echo("🔐 Authenticating with Tidal...")
-        tidal_auth.authenticate()
-
-        # Set up progress callback
-        def progress_callback(message: str) -> None:
-            click.echo(f"⏳ {message}")
-
-        # Perform sync
-        result = sync_service.sync_collection(
-            progress_callback=progress_callback,
-            playlist_name=playlist_name,
-            folder_id=folder_id,
-        )
-
-        # Display results
-        click.echo("\n📊 Sync Results:")
-        click.echo(f"  Total tracks: {result.total_tracks}")
-        click.echo(f"  Found on Tidal: {result.found_tracks}")
-        if dry_run:
-            click.echo(f"  Would add: {result.found_tracks}")
-        else:
-            click.echo(f"  Added to playlist: {result.added_tracks}")
-        click.echo(f"  Failed: {result.failed_tracks}")
-
-        success_rate = (
-            (result.found_tracks / result.total_tracks * 100)
-            if result.total_tracks > 0
-            else 0
-        )
-        click.echo(f"  Success rate: {success_rate:.1f}%")
-
-        if result.failed_tracks > 0:
-            click.echo(
-                f"\n⚠️  {result.failed_tracks} tracks could not be found on Tidal"
-            )
-
-        if dry_run:
-            click.echo(
-                f"\n✅ Dry run completed! {result.found_tracks} tracks "
-                f"would be added to '{playlist_name}'."
-            )
-        else:
-            click.echo(
-                f"\n✅ Sync completed! Playlist '{playlist_name}' "
-                f"updated with {result.added_tracks} tracks."
-            )
-
-    except DiscogsToTidalError as e:
-        click.echo(f"❌ Sync failed: {e}", err=True)
-        ctx.exit(1)
-    except Exception as e:
-        click.echo(f"❌ Unexpected error: {e}", err=True)
-        ctx.exit(1)
+    execute_sync_command(config, playlist_name, folder_id, limit, dry_run)
 
 
 @cli.command()

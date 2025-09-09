@@ -114,18 +114,23 @@ class DiscogsService:
         tracks: List[Track] = []
 
         try:
-            # Validate folder_id exists
-            if folder_id >= len(self._user.collection_folders):
+            # Find the folder with the matching ID
+            folder = None
+            for f in self._user.collection_folders:
+                if f.id == folder_id:
+                    folder = f
+                    break
+            
+            if folder is None:
                 available_folders = [
-                    f"ID {i}: {folder.name}"
-                    for i, folder in enumerate(self._user.collection_folders)
+                    f"ID {f.id}: {f.name}"
+                    for f in self._user.collection_folders
                 ]
                 raise SearchError(
                     f"Invalid folder ID {folder_id}. Available folders: "
                     f"{', '.join(available_folders)}"
                 )
 
-            folder = self._user.collection_folders[folder_id]
             releases = list(folder.releases)
 
             logger.info(f"Found {len(releases)} releases in collection")
@@ -193,19 +198,25 @@ class DiscogsService:
         albums_with_tracks: List[Tuple[Album, List[Track]]] = []
 
         try:
-            # Validate folder_id exists
-            if folder_id >= len(self._user.collection_folders):
+            # Find the folder by its ID rather than using array indexing
+            target_folder = None
+            
+            for folder in self._user.collection_folders:
+                if folder.id == folder_id:
+                    target_folder = folder
+                    break
+            
+            if target_folder is None:
                 available_folders = [
-                    f"ID {i}: {folder.name}"
-                    for i, folder in enumerate(self._user.collection_folders)
+                    f"ID {folder.id}: {folder.name} ({folder.count} items)"
+                    for folder in self._user.collection_folders
                 ]
                 raise SearchError(
-                    f"Invalid folder ID {folder_id}. Available folders: "
+                    f"Folder with ID {folder_id} not found. Available folders: "
                     f"{', '.join(available_folders)}"
                 )
 
-            folder = self._user.collection_folders[folder_id]
-            releases = list(folder.releases)
+            releases = list(target_folder.releases)
 
             logger.info(f"Found {len(releases)} releases in collection")
 
