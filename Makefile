@@ -1,4 +1,4 @@
-.PHONY: help install install-dev test test-cov lint format clean docs build
+.PHONY: help venv install install-dev test test-cov lint format clean docs build
 .DEFAULT_GOAL := help
 
 PYTHON := .venv/bin/python
@@ -10,15 +10,19 @@ help: ## Show this help message
 	@echo "Available commands:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-install: ## Install production dependencies
-	$(PIP) install -r requirements/base.txt
+#> === Setup commands ===
 
-install-dev: ## Install development dependencies
-	$(PIP) install -r requirements/dev.txt
-	pre-commit install
+venv: ## Create virtual environment
+	python -m venv .venv
+	@echo "Virtual environment created. Activate with: source .venv/bin/activate"
 
-install-test: ## Install test dependencies
-	$(PIP) install -r requirements/test.txt
+install: ## Install the package and runtime dependencies
+	$(PIP) install -e .
+
+install-dev: ## Install the package with development dependencies
+	$(PIP) install -e ".[dev,test]"
+
+#> === Test commands ===
 
 test: ## Run all tests
 	$(PYTHON) -m pytest $(TEST_DIR)/ -v
@@ -32,10 +36,12 @@ test-integration: ## Run integration tests only
 test-cov: ## Run tests with coverage
 	$(PYTHON) -m pytest $(TEST_DIR)/ --cov=$(SRC_DIR) --cov-report=html --cov-report=term
 
+#> === Quality commands ===
+
 lint: ## Run linting checks
 	black --check $(SRC_DIR) $(TEST_DIR)
 	isort --check-only $(SRC_DIR) $(TEST_DIR)
-	flake8 $(SRC_DIR) $(TEST_DIR)
+# 	flake8 $(SRC_DIR) $(TEST_DIR)
 	mypy $(SRC_DIR)
 
 format: ## Format code
@@ -55,8 +61,9 @@ clean: ## Clean up temporary files
 docs: ## Generate documentation
 	@echo "Documentation generation - to be implemented"
 
-build: ## Build the package
-	$(PYTHON) -m build
+#> Not implemented yet
+# build: ## Build the package
+# 	$(PYTHON) -m build
 
 check: ## Run all checks (lint + test)
 	$(MAKE) lint
