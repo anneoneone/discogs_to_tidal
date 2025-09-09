@@ -25,19 +25,19 @@ repos:
           - flake8-pyproject
         files: ^src/.*\.py$
 
-  # Basic type checking - only major errors
+  # Type checking - same as make lint
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.8.0
+    rev: v1.17.1
     hooks:
       - id: mypy
         additional_dependencies:
           - types-requests
           - click
+          - discogs-client>=2.3.0
+          - tidalapi>=0.7.0
+          - python-dotenv>=1.0.0
         args:
-          - --ignore-missing-imports
-          - --disable-error-code=unused-ignore
-          - --disable-error-code=no-any-return
-          - --disable-error-code=unreachable
+          - --no-warn-unused-ignores
         files: ^src/.*\.py$
 
   # General code quality

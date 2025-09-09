@@ -6,7 +6,7 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import tidalapi
 
@@ -170,7 +170,7 @@ class TidalSearchService:
                             tracks = tidal_album.tracks()
                             if tracks:
                                 self.album_cache[cache_key] = tracks
-                                return tracks
+                                return cast(List[Any], tracks)
                         except Exception as e:
                             logger.warning(
                                 f"Failed to fetch tracks for album "
@@ -611,7 +611,7 @@ class TidalSearchService:
                             existing_data = json.loads(content)
                             if not isinstance(existing_data, list):
                                 existing_data = [existing_data]
-                except (json.JSONDecodeError, FileNotFoundError):
+                except json.JSONDecodeError:
                     existing_data = []
 
             # Append new data

@@ -48,6 +48,12 @@ test-cov: ## Run tests with coverage
 
 #> === Quality commands ===
 
+pre-commit: ## Run pre-commit hooks on all files
+	.venv/bin/pre-commit run --all-files
+
+pre-commit-install: ## Install pre-commit hooks
+	.venv/bin/pre-commit install
+
 lint: ## Run linting checks
 	$(BLACK) --check $(SRC_DIR) $(TEST_DIR)
 	$(ISORT) --check-only $(SRC_DIR) $(TEST_DIR)

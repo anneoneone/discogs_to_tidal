@@ -1,6 +1,7 @@
 import os
-import tidalapi
 import time
+
+import tidalapi
 
 # Use your existing token file
 TOKEN_PATH = os.path.expanduser("~/Documents/tidal_session.json")
@@ -10,8 +11,11 @@ session = tidalapi.Session()
 with open(TOKEN_PATH, "r") as f:
     data = f.read()
 import json
+
 creds = json.loads(data)
-session.load_oauth_session(creds["token_type"], creds["access_token"], creds["refresh_token"])
+session.load_oauth_session(
+    creds["token_type"], creds["access_token"], creds["refresh_token"]
+)
 if not session.check_login():
     print("Tidal login failed!")
     exit(1)
@@ -21,7 +25,7 @@ print("Tidal login successful!")
 playlists = session.user.playlists()
 playlist = None
 for pl in playlists:
-    if hasattr(pl, 'name') and pl.name == "House":
+    if hasattr(pl, "name") and pl.name == "House":
         playlist = pl
         break
 if not playlist:
@@ -48,7 +52,7 @@ else:
     print("Result is not a dict!")
 # Try to get tracks from common keys
 tracks = []
-for key in ['tracks', 'items', 'results']:
+for key in ["tracks", "items", "results"]:
     if key in result and isinstance(result[key], list):
         tracks = result[key]
         break
