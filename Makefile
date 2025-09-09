@@ -93,6 +93,9 @@ run: ## Run the CLI help
 sync: ## Sync Discogs collection to Tidal
 	.venv/bin/discogs-to-tidal sync
 
+style-sync: ## Create Tidal playlists organized by styles/subgenres
+	.venv/bin/discogs-to-tidal style-sync
+
 test-auth: ## Test authentication with services
 	.venv/bin/discogs-to-tidal test-auth
 
@@ -104,6 +107,9 @@ discogs-auth: ## Check and setup Discogs authorization (prompt for token if need
 
 config: ## Show configuration information
 	.venv/bin/discogs-to-tidal config-info
+
+folders: ## List available Discogs collection folders
+	.venv/bin/discogs-to-tidal list-folders
 
 run-old: ## Run the old main.py (legacy)
 	$(PYTHON) main.py

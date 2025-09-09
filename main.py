@@ -83,8 +83,10 @@ def main():
             print(f"\n⚠️  {result.failed_tracks} tracks could not be found on Tidal")
         
         print(f"\n✅ Sync completed! Playlist '{playlist_name}' updated.")
-        print("\n💡 Tip: For more options, try the new CLI interface:")
-        print("   discogs-to-tidal --help")
+        print("\n💡 Advanced features available:")
+        print("   discogs-to-tidal sync       - Full sync with options")
+        print("   discogs-to-tidal style-sync - Create playlists by style/subgenre")
+        print("   discogs-to-tidal --help     - See all available commands")
         
     except KeyboardInterrupt:
         print("\n\n❌ Sync cancelled by user.")

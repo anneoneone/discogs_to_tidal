@@ -5,6 +5,8 @@ A modern Python application that syncs your Discogs collection to Tidal playlist
 ## ✨ Features
 
 - **Smart Collection Sync**: Fetch albums from your Discogs collection and create corresponding Tidal playlists
+- **Style-Based Organization**: Automatically create playlists organized by styles/subgenres (e.g., "House", "Deep House", "Techno")
+- **Multi-Playlist Support**: Tracks from albums with multiple styles are added to all relevant playlists
 - **Folder Support**: Organize sync by specific Discogs folders
 - **Advanced Search**: Intelligent matching between Discogs and Tidal tracks with fallback strategies
 - **Progress Tracking**: Real-time sync progress with detailed reporting
@@ -58,17 +60,48 @@ You'll be prompted to enter your Discogs token and authenticate with Tidal on fi
 ## 📖 Usage
 
 ### Basic Sync
+Sync your entire collection to a single playlist:
 ```bash
-discogs-to-tidal
+discogs-to-tidal sync --playlist-name "My Collection"
+```
+
+### Style-Based Sync (New!)
+Create multiple playlists organized by styles/subgenres:
+```bash
+# Create playlists like "Discogs - House", "Discogs - Techno", etc.
+discogs-to-tidal style-sync
+
+# Custom base name: "MyMusic - House", "MyMusic - Techno", etc.
+discogs-to-tidal style-sync --base-name "MyMusic"
+
+# Limit processing and specify folder
+discogs-to-tidal style-sync --base-name "Electronic" --folder-id 123 --limit 100
 ```
 
 ### Advanced Options
-The application supports various configuration options through environment variables or interactive prompts:
+```bash
+# Sync specific folder with dry-run
+discogs-to-tidal sync --folder-id 123456 --limit 50 --dry-run
 
-- **Discogs Token**: Your personal API token from Discogs
-- **Folder Selection**: Choose specific folders from your collection
-- **Playlist Management**: Create new or update existing playlists
-- **Output Options**: Configure result reporting and logging
+# Interactive folder selection
+discogs-to-tidal sync  # Will prompt for folder selection
+
+# List available folders
+discogs-to-tidal list-folders
+
+# Authentication commands
+discogs-to-tidal tidal-auth    # Authenticate with Tidal
+discogs-to-tidal discogs-auth  # Set up Discogs token
+discogs-to-tidal test-auth     # Test both authentications
+```
+
+### Style-Based Organization Features
+- **Multiple Playlists**: Creates separate playlists for each style found in your collection
+- **Multi-Style Support**: Tracks from albums with multiple styles (e.g., ["House", "Deep House"]) are added to all relevant playlists
+- **Optimized Search**: Each track is searched on Tidal only once, then cached and reused for multiple playlists (major performance improvement!)
+- **Unknown Style Handling**: Tracks without style information are grouped into an "Unknown Style" playlist
+- **Customizable Naming**: Control the base name for all generated playlists
+- **Batch Operations**: Uses efficient batch playlist operations when possible
 
 ## 🏗️ Development
 
