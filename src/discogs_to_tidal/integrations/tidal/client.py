@@ -2,7 +2,7 @@
 Tidal API client for playlist management.
 """
 import logging
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 import tidalapi
 
@@ -31,7 +31,9 @@ class TidalService:
             self._session = self._auth.authenticate()
         return self._session
 
-    def authenticate_with_progress(self, progress_callback=None) -> tidalapi.Session:
+    def authenticate_with_progress(
+        self, progress_callback: Optional[Callable] = None
+    ) -> tidalapi.Session:
         """
         Authenticate with optional progress callback for better UX.
 
@@ -57,10 +59,13 @@ class TidalService:
         if session_data:
             try:
                 test_session = tidalapi.Session()
+                token_type = session_data.get("token_type") or ""
+                access_token = session_data.get("access_token") or ""
+                refresh_token = session_data.get("refresh_token") or ""
                 test_session.load_oauth_session(
-                    session_data.get("token_type"),
-                    session_data.get("access_token"),
-                    session_data.get("refresh_token"),
+                    token_type,
+                    access_token,
+                    refresh_token,
                 )
                 return self._auth.validate_session(test_session)
             except Exception:
@@ -96,7 +101,7 @@ class TidalService:
         logger.info("Fetching your Tidal playlists...")
 
         try:
-            playlists = self.session.user.playlists()
+            playlists = self.session.user.playlists()  # type: ignore[union-attr]
         except Exception as e:
             logger.error(f"Error fetching playlists: {e}")
             playlists = []
@@ -105,13 +110,15 @@ class TidalService:
         for playlist in playlists:
             if hasattr(playlist, "name") and playlist.name == name:
                 logger.info(f"Found existing playlist: {name}")
-                return playlist
+                return playlist  # type: ignore[no-any-return]
 
         # Create new playlist
         logger.info(f"Creating new playlist: {name}")
         try:
-            playlist = self.session.user.create_playlist(name, description)
-            return playlist
+            playlist = self.session.user.create_playlist(  # type: ignore[union-attr]
+                name, description
+            )
+            return playlist  # type: ignore[no-any-return]
         except Exception as e:
             raise SyncError(f"Failed to create playlist '{name}': {e}")
 
@@ -131,7 +138,11 @@ class TidalService:
         if not tracks:
             logger.warning("No tracks provided")
             return SyncResult(
-                total_tracks=0, found_tracks=0, added_tracks=0, failed_tracks=0
+                success=True,
+                total_tracks=0,
+                matched_tracks=0,
+                failed_tracks=0,
+                playlist_name=playlist_name,
             )
 
         # Get or create playlist
@@ -162,7 +173,7 @@ class TidalService:
 
             if tidal_track:
                 try:
-                    playlist.add([tidal_track.id])
+                    playlist.add([tidal_track.id])  # type: ignore[attr-defined]
                     added_count += 1
                     found_tracks.append(track)
                     logger.info(
@@ -175,10 +186,11 @@ class TidalService:
                 failed_count += 1
 
         result = SyncResult(
+            success=added_count > 0,
             total_tracks=len(tracks),
-            found_tracks=len(found_tracks),
-            added_tracks=added_count,
+            matched_tracks=len(found_tracks),
             failed_tracks=failed_count,
+            playlist_name=playlist_name,
         )
 
         logger.info(

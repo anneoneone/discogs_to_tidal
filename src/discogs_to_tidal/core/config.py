@@ -7,7 +7,7 @@ import os
 import stat
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 from .exceptions import ConfigurationError
 
@@ -39,7 +39,7 @@ class Config:
     _project_root: Optional[Path] = field(default=None, init=False)
     _tokens_dir: Optional[Path] = field(default=None, init=False)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Initialize derived settings."""
         self._project_root = self._find_project_root()
         self._tokens_dir = (
@@ -201,9 +201,10 @@ class Config:
             discogs_token_file = self.tokens_dir / "discogs_token.json"
             if discogs_token_file.exists() and not self.discogs_token:
                 with open(discogs_token_file, "r") as f:
-                    token_data = json.load(f)
-                    self.discogs_token = token_data.get("token")
-                    if self.discogs_token:
+                    token_data: Dict[str, Any] = json.load(f)
+                    token = token_data.get("token")
+                    if token and isinstance(token, str):
+                        self.discogs_token = token
                         logger.info("Loaded Discogs token from secure storage")
 
         except Exception as e:
@@ -289,12 +290,12 @@ class Config:
             discogs_token_file = self.tokens_dir / "discogs_token.json"
             if discogs_token_file.exists():
                 with open(discogs_token_file, "r") as f:
-                    token_data = json.load(f)
+                    token_data: Dict[str, Any] = json.load(f)
                     token = token_data.get("token")
-                    if token:
+                    if token and isinstance(token, str):
                         self.discogs_token = token
                         logger.info("Loaded Discogs token from secure storage")
-                        return token
+                        return cast(str, token)
         except Exception as e:
             logger.warning(f"Failed to load Discogs token from storage: {e}")
 

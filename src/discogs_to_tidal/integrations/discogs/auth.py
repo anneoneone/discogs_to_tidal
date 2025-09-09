@@ -9,9 +9,9 @@ import tempfile
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, cast
 
-from discogs_client import Client as DiscogsClient
+from discogs_client import Client as DiscogsClient  # type: ignore[import-untyped]
 
 from ...core.config import Config
 from ...core.exceptions import AuthenticationError
@@ -42,7 +42,7 @@ class DiscogsAuth:
     def __init__(self, config: Config):
         self.config = config
         self._client: Optional[DiscogsClient] = None
-        self._user = None
+        self._user: Any = None  # User object from discogs_client
         self.auth_timeout = 30  # 30 seconds for token validation
         self.progress_callback: Optional[Callable[[str, int], None]] = None
         self._last_auth_status = DiscogsAuthStatus.PENDING
@@ -55,7 +55,7 @@ class DiscogsAuth:
         return self._client
 
     @property
-    def user(self):
+    def user(self) -> Any:
         """Get authenticated user info."""
         if self._user is None and self._client:
             self._authenticate_user()
@@ -114,7 +114,9 @@ class DiscogsAuth:
             logger.error(f"Failed to save Discogs session: {e}")
             return False
 
-    def load_session(self, token_path: Optional[Path] = None) -> Optional[dict]:
+    def load_session(
+        self, token_path: Optional[Path] = None
+    ) -> Optional[Dict[str, Any]]:
         """Load Discogs session data from secure storage."""
         if token_path is None:
             token_path = self.get_token_storage_path()
@@ -124,7 +126,7 @@ class DiscogsAuth:
 
         try:
             with open(token_path, "r") as f:
-                session_data = json.load(f)
+                session_data: Dict[str, Any] = json.load(f)
 
             logger.info("Discogs session data loaded successfully")
             return session_data
@@ -179,6 +181,39 @@ class DiscogsAuth:
             self.clear_session()
 
         return None
+
+    def _prompt_for_token(self) -> Optional[str]:
+        """
+        Prompt user for Discogs personal token.
+
+        Returns:
+            The user-provided token or None if cancelled
+        """
+        try:
+            print("\nDiscogs Personal Token Required:")
+            print("1. Go to https://www.discogs.com/settings/developers")
+            print("2. Generate a new personal access token")
+            print("3. Copy and paste the token below")
+            print("4. Press Enter (or Ctrl+C to cancel)")
+
+            token = input("\nEnter your Discogs personal token: ").strip()
+            if not token:
+                logger.warning("No token provided by user")
+                return None
+
+            # Basic validation
+            if len(token) < 10:  # Discogs tokens are typically much longer
+                logger.warning("Token appears too short to be valid")
+                return None
+
+            return token
+
+        except (KeyboardInterrupt, EOFError):
+            logger.info("Token input cancelled by user")
+            return None
+        except Exception as e:
+            logger.error(f"Error getting token from user: {e}")
+            return None
 
     def _authenticate_personal_token(self) -> Optional[DiscogsClient]:
         """Authenticate using personal token from config."""
@@ -282,19 +317,17 @@ class DiscogsAuth:
 
         try:
             self._user = self._client.identity()
-            logger.info(f"Authenticated as Discogs user: {self._user.username}")
+            if self._user and hasattr(self._user, "username"):
+                logger.info(f"Authenticated as Discogs user: {self._user.username}")
         except Exception as e:
             raise AuthenticationError(f"Failed to get Discogs user info: {e}")
 
     def is_authenticated(self) -> bool:
         """Check if currently authenticated with Discogs."""
         try:
-            return (
-                self._client is not None
-                and self._user is not None
-                and hasattr(self._user, "username")
-                and self._user.username
-            )
+            if self._client is None or self._user is None:
+                return False
+            return bool(hasattr(self._user, "username") and self._user.username)
         except Exception:
             return False
 
@@ -304,13 +337,13 @@ class DiscogsAuth:
 
     def validate_session(self) -> bool:
         """Validate current session is still active."""
-        if not self._client or not self._user:
+        if self._client is None or self._user is None:
             return False
 
         try:
             # Try to make a simple API call to validate session
             user = self._client.identity()
-            return user and hasattr(user, "username") and user.username
+            return bool(user and hasattr(user, "username") and user.username)
         except Exception as e:
             logger.warning(f"Discogs session validation failed: {e}")
             return False

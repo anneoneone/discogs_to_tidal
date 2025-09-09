@@ -143,7 +143,7 @@ class TidalAuth:
                     return None
 
                 logger.debug("Loaded valid session data")
-                return session_data
+                return session_data  # type: ignore[no-any-return]
 
         except (json.JSONDecodeError, IOError) as e:
             logger.error(f"Error loading session: {e}")
@@ -270,11 +270,15 @@ class TidalAuth:
 
         try:
             session = self._create_session()
+            token_type = session_data.get("token_type") or ""
+            access_token = session_data.get("access_token") or ""
+            refresh_token = session_data.get("refresh_token") or ""
+            expiry_time = session_data.get("expiry_time")
             session.load_oauth_session(
-                session_data.get("token_type"),
-                session_data.get("access_token"),
-                session_data.get("refresh_token"),
-                session_data.get("expiry_time"),
+                token_type,
+                access_token,
+                refresh_token,
+                expiry_time,
             )
 
             if self.validate_session(session):
@@ -335,7 +339,7 @@ class TidalAuth:
 
                 elapsed = int(time.time() - start_time)
                 remaining = timeout_seconds - elapsed
-                progress = min(30 + (elapsed / timeout_seconds) * 60, 90)
+                progress = int(min(30 + (elapsed / timeout_seconds) * 60, 90))
                 self._notify_progress(
                     f"Waiting for authorization... ({remaining}s remaining)", progress
                 )
@@ -361,7 +365,7 @@ class TidalAuth:
             logger.error(f"OAuth authentication failed: {e}")
             raise AuthenticationError(f"OAuth authentication failed: {e}")
 
-    def _display_auth_instructions(self, login_url: str, auto_open: bool):
+    def _display_auth_instructions(self, login_url: str, auto_open: bool) -> None:
         """Display authentication instructions to user."""
         print("\n🎵 Tidal Authentication Required")
         print(f"📋 Please visit: {login_url}")

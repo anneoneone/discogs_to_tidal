@@ -21,7 +21,7 @@ class TidalSearchService:
 
     def __init__(self, session: tidalapi.Session):
         self.session = session
-        self.album_cache: Dict[str, List[tidalapi.Track]] = {}
+        self.album_cache: Dict[str, Optional[List[tidalapi.Track]]] = {}
 
     def find_tracks_by_album(
         self, album: Album, tracks: List[Track], output_file: Optional[Path] = None
@@ -48,7 +48,7 @@ class TidalSearchService:
         )
 
         results = []
-        conversion_data = {
+        conversion_data: Dict[str, Any] = {
             "album": {
                 "title": album.title,
                 "artists": [artist.name for artist in album.artists],
@@ -75,8 +75,13 @@ class TidalSearchService:
             conversion_data["tracks"].append(track_data)
 
             if tidal_match:
+                tidal_artist_name = (
+                    tidal_match.artist.name if tidal_match.artist else "Unknown"
+                )
+                # mypy: artist.name can be None even if artist exists
+                tidal_artist_name = tidal_artist_name or "Unknown"
                 logger.info(
-                    f"    ✓ FOUND: '{tidal_match.name}' by '{tidal_match.artist.name}' "
+                    f"    ✓ FOUND: '{tidal_match.name}' by '{tidal_artist_name}' "
                     f"(ID: {tidal_match.id})"
                 )
             else:
@@ -208,15 +213,24 @@ class TidalSearchService:
     ) -> bool:
         """Check if a Tidal album matches the Discogs album."""
         # Compare titles
-        discogs_title = normalize_string(self._clean_title(discogs_album.title))
-        tidal_title = normalize_string(self._clean_title(tidal_album.name))
+        discogs_title_str = discogs_album.title or ""
+        tidal_title_str = tidal_album.name or ""
+        discogs_title = normalize_string(self._clean_title(discogs_title_str))
+        tidal_title = normalize_string(self._clean_title(tidal_title_str))
 
         title_ratio = difflib.SequenceMatcher(None, discogs_title, tidal_title).ratio()
 
         # Compare primary artist
-        primary_artist = discogs_album.primary_artist.name
-        discogs_artist = normalize_string(self._clean_artist(primary_artist))
-        tidal_artist = normalize_string(self._clean_artist(tidal_album.artist.name))
+        if not discogs_album.primary_artist:
+            return False
+
+        primary_artist_name = (
+            discogs_album.primary_artist.name if discogs_album.primary_artist else ""
+        )
+        discogs_artist = normalize_string(self._clean_artist(primary_artist_name))
+        tidal_artist_name = tidal_album.artist.name if tidal_album.artist else ""
+        tidal_artist_name = tidal_artist_name or ""  # Handle None case
+        tidal_artist = normalize_string(self._clean_artist(tidal_artist_name))
 
         artist_ratio = difflib.SequenceMatcher(
             None, discogs_artist, tidal_artist
@@ -232,7 +246,8 @@ class TidalSearchService:
         if not discogs_track.title:
             return None
 
-        discogs_title = normalize_string(self._clean_title(discogs_track.title))
+        discogs_title_str = discogs_track.title or ""
+        discogs_title = normalize_string(self._clean_title(discogs_title_str))
         discogs_artist = (
             normalize_string(self._clean_artist(discogs_track.primary_artist.name))
             if discogs_track.primary_artist
@@ -240,11 +255,14 @@ class TidalSearchService:
         )
 
         best_match = None
-        best_score = 0
+        best_score = 0.0
 
         for tidal_track in tidal_tracks:
-            tidal_title = normalize_string(self._clean_title(tidal_track.name))
-            tidal_artist = normalize_string(self._clean_artist(tidal_track.artist.name))
+            tidal_title_str = tidal_track.name or ""
+            tidal_title = normalize_string(self._clean_title(tidal_title_str))
+            tidal_artist_name = tidal_track.artist.name if tidal_track.artist else ""
+            tidal_artist_name = tidal_artist_name or ""  # Handle None case
+            tidal_artist = normalize_string(self._clean_artist(tidal_artist_name))
 
             # Calculate similarity scores
             title_ratio = difflib.SequenceMatcher(
@@ -258,7 +276,7 @@ class TidalSearchService:
             combined_score = (title_ratio * 0.7) + (artist_ratio * 0.3)
 
             # Also consider track position if available
-            position_bonus = 0
+            position_bonus = 0.0
             if (
                 discogs_track.track_number
                 and hasattr(tidal_track, "track_num")
@@ -307,7 +325,7 @@ class TidalSearchService:
             f"{len(tidal_album_tracks)} album tracks"
         )
 
-        merged_results = []
+        merged_results: List[Tuple[Track, Optional[tidalapi.Track]]] = []
 
         for discogs_track, individually_found_track in individual_results:
             if individually_found_track:
@@ -482,7 +500,9 @@ class TidalSearchService:
         # First pass: find tracks with decent artist matches (more lenient)
         artist_matches = []
         for tidal_track in tidal_tracks:
-            t_artist = normalize_string(self._clean_artist(tidal_track.artist.name))
+            t_artist_name = tidal_track.artist.name if tidal_track.artist else ""
+            t_artist_name = t_artist_name or ""  # Handle None case
+            t_artist = normalize_string(self._clean_artist(t_artist_name))
             artist_ratio = difflib.SequenceMatcher(None, t_artist, norm_artist).ratio()
 
             logger.debug(
@@ -497,7 +517,12 @@ class TidalSearchService:
             logger.debug("    No decent artist match found (threshold: 0.65)")
             # Try even more lenient matching for difficult cases
             for tidal_track in tidal_tracks:
-                t_artist = normalize_string(self._clean_artist(tidal_track.artist.name))
+                t_artist_name_fallback = (
+                    tidal_track.artist.name if tidal_track.artist else ""
+                )
+                # Handle None case
+                t_artist_name_fallback = t_artist_name_fallback or ""
+                t_artist = normalize_string(self._clean_artist(t_artist_name_fallback))
                 artist_ratio = difflib.SequenceMatcher(
                     None, t_artist, norm_artist
                 ).ratio()
@@ -510,16 +535,20 @@ class TidalSearchService:
 
         # Second pass: find best title match among artist matches
         best = None
-        best_score = 0
+        best_score = 0.0
 
         for tidal_track, artist_ratio in artist_matches:
-            t_title = normalize_string(self._clean_title(tidal_track.name))
+            track_name = tidal_track.name or ""
+            t_title = normalize_string(self._clean_title(track_name))
             title_ratio = difflib.SequenceMatcher(None, t_title, norm_title).ratio()
             # Weight title more heavily than artist
             score = (artist_ratio * 0.3) + (title_ratio * 0.7)
 
+            track_artist_name = (
+                tidal_track.artist.name if tidal_track.artist else "Unknown"
+            )
             logger.debug(
-                f"      Tidal: '{tidal_track.name}' by '{tidal_track.artist.name}' "
+                f"      Tidal: '{tidal_track.name}' by '{track_artist_name}' "
                 f"(artist_score={artist_ratio:.2f}, title_score={title_ratio:.2f}, "
                 f"combined={score:.2f})"
             )
@@ -529,8 +558,9 @@ class TidalSearchService:
                 best_score = score
 
         if best:
+            best_artist_name = best.artist.name if best.artist else "Unknown"
             logger.debug(
-                f"    ✓ Best match: '{best.name}' by '{best.artist.name}' "
+                f"    ✓ Best match: '{best.name}' by '{best_artist_name}' "
                 f"(id: {best.id}, score={best_score:.2f})"
             )
         else:
@@ -557,7 +587,7 @@ class TidalSearchService:
         if tidal_track:
             data["tidal"] = {
                 "title": tidal_track.name,
-                "artist": tidal_track.artist.name,
+                "artist": tidal_track.artist.name if tidal_track.artist else "Unknown",
                 "id": tidal_track.id,
                 "duration": getattr(tidal_track, "duration", None),
                 "track_number": getattr(tidal_track, "track_num", None),

@@ -3,7 +3,7 @@ Core synchronization service with album-based optimization.
 """
 import logging
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 from ..integrations.discogs.client import DiscogsService
 from ..integrations.tidal.auth import TidalAuth
@@ -26,7 +26,7 @@ class SyncService:
         self.discogs_service = discogs_service
         self.tidal_auth = tidal_auth
         self.output_dir = output_dir or Path.cwd() / "output"
-        self.search_service = None
+        self.search_service: Optional[TidalSearchService] = None
 
     def sync_collection(
         self,
@@ -88,7 +88,7 @@ class SyncService:
 
     def _initialize_tidal_session(
         self, progress_callback: Optional[Callable[[str], None]] = None
-    ):
+    ) -> Any:
         """Initialize Tidal session and search service."""
         if progress_callback:
             progress_callback("Authenticating with Tidal...")
@@ -182,14 +182,16 @@ class SyncService:
     ) -> None:
         """Report progress for current album being processed."""
         if progress_callback:
+            artist_name = (
+                album.primary_artist.name if album.primary_artist else "Unknown"
+            )
             progress_callback(
                 f"Processing album {current}/{total}: "
-                f"{album.title} by {album.primary_artist.name}"
+                f"{album.title} by {artist_name}"
             )
 
-        logger.info(
-            f"Album {current}/{total}: {album.title} " f"by {album.primary_artist.name}"
-        )
+        artist_name = album.primary_artist.name if album.primary_artist else "Unknown"
+        logger.info(f"Album {current}/{total}: {album.title} by {artist_name}")
 
     def _process_single_album(
         self, album: Album, tracks: List[Track], output_file: Path
@@ -198,6 +200,9 @@ class SyncService:
         logger.info(f"Processing: {album.title} ({len(tracks)} tracks)")
 
         # Search for this album's tracks on Tidal
+        if self.search_service is None:
+            raise SyncError("Search service not initialized")
+
         track_results = self.search_service.find_tracks_by_album(
             album, tracks, output_file
         )
@@ -222,9 +227,9 @@ class SyncService:
 
     def _handle_playlist_creation(
         self,
-        session,
+        session: Any,
         playlist_name: str,
-        tracks: List,
+        tracks: List[Any],
         progress_callback: Optional[Callable[[str], None]] = None,
     ) -> Optional[str]:
         """Handle playlist creation or update."""
@@ -276,7 +281,7 @@ class SyncService:
             )
 
     def _create_or_update_playlist(
-        self, session, playlist_name: str, tracks: List
+        self, session: Any, playlist_name: str, tracks: List[Any]
     ) -> str:
         """Create or update a Tidal playlist with the found tracks."""
         existing_playlist = self._find_existing_playlist(session, playlist_name)
@@ -287,7 +292,9 @@ class SyncService:
         else:
             return self._create_new_playlist(session, playlist_name, track_ids)
 
-    def _find_existing_playlist(self, session, playlist_name: str):
+    def _find_existing_playlist(
+        self, session: Any, playlist_name: str
+    ) -> Optional[Any]:
         """Find an existing playlist by name."""
         try:
             existing_playlists = session.user.playlists()
@@ -299,7 +306,7 @@ class SyncService:
 
         return None
 
-    def _update_existing_playlist(self, playlist, track_ids: List[str]) -> str:
+    def _update_existing_playlist(self, playlist: Any, track_ids: List[str]) -> str:
         """Update an existing playlist with new tracks."""
         logger.info(f"Updating existing playlist: {playlist.name}")
 
@@ -309,10 +316,10 @@ class SyncService:
         # Add new tracks
         self._add_tracks_to_playlist(playlist, track_ids, "existing")
 
-        return playlist.id
+        return playlist.id  # type: ignore[no-any-return]
 
     def _create_new_playlist(
-        self, session, playlist_name: str, track_ids: List[str]
+        self, session: Any, playlist_name: str, track_ids: List[str]
     ) -> str:
         """Create a new playlist and add tracks."""
         logger.info(f"Creating new playlist: {playlist_name}")
@@ -324,9 +331,9 @@ class SyncService:
         # Add tracks
         self._add_tracks_to_playlist(new_playlist, track_ids, "new")
 
-        return new_playlist.id
+        return new_playlist.id  # type: ignore[no-any-return]
 
-    def _clear_playlist_tracks(self, playlist) -> None:
+    def _clear_playlist_tracks(self, playlist: Any) -> None:
         """Clear all tracks from an existing playlist."""
         try:
             existing_tracks = playlist.tracks()
@@ -338,7 +345,7 @@ class SyncService:
             logger.warning(f"Failed to clear existing playlist: {e}")
 
     def _add_tracks_to_playlist(
-        self, playlist, track_ids: List[str], playlist_type: str
+        self, playlist: Any, track_ids: List[str], playlist_type: str
     ) -> None:
         """Add tracks to a playlist."""
         try:

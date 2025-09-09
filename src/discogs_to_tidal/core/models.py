@@ -25,9 +25,9 @@ class Album:
     artists: List[Artist]
     year: Optional[int] = None
     id: Optional[str] = None
-    genres: List[str] = None
+    genres: Optional[List[str]] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.genres is None:
             self.genres = []
 
@@ -97,7 +97,7 @@ class Playlist:
     description: Optional[str] = None
     created_at: Optional[datetime] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.created_at is None:
             self.created_at = datetime.now()
 
@@ -149,9 +149,9 @@ class SyncResult:
     matched_tracks: int
     failed_tracks: int
     playlist_name: str
-    errors: List[str] = None
+    errors: Optional[List[str]] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.errors is None:
             self.errors = []
 

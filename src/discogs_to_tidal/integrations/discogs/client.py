@@ -6,9 +6,9 @@ import logging
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
-from discogs_client import Client as DiscogsClient
+from discogs_client import Client as DiscogsClient  # type: ignore[import-untyped]
 
 from ...core.config import Config
 from ...core.exceptions import AuthenticationError, SearchError
@@ -25,7 +25,7 @@ class DiscogsService:
         self.config = config
         self._auth = DiscogsAuth(config)
         self._client: Optional[DiscogsClient] = None
-        self._user = None
+        self._user: Any = None  # Discogs user object
 
     @property
     def client(self) -> DiscogsClient:
@@ -35,7 +35,7 @@ class DiscogsService:
         return self._client
 
     @property
-    def user(self):
+    def user(self) -> Any:
         """Get authenticated user info."""
         if self._user is None:
             self._user = self._auth.user
@@ -46,7 +46,8 @@ class DiscogsService:
         try:
             self._client = self._auth.authenticate()
             self._user = self._auth.user
-            logger.info(f"Authenticated as Discogs user: {self._user.username}")
+            if self._user is not None and hasattr(self._user, "username"):
+                logger.info(f"Authenticated as Discogs user: {self._user.username}")
         except Exception as e:
             raise AuthenticationError(f"Discogs authentication failed: {e}")
 
@@ -100,8 +101,12 @@ class DiscogsService:
         if self._user is None:
             self.authenticate()
 
+        # After authentication, check if user is properly set
+        if self._user is None:
+            raise AuthenticationError("Failed to authenticate user")
+
         logger.info(f"Fetching tracks from collection folder {folder_id}")
-        tracks = []
+        tracks: List[Track] = []
 
         try:
             # Validate folder_id exists
@@ -163,8 +168,12 @@ class DiscogsService:
         if self._user is None:
             self.authenticate()
 
+        # After authentication, check if user is properly set
+        if self._user is None:
+            raise AuthenticationError("Failed to authenticate user")
+
         logger.info(f"Fetching albums from collection folder {folder_id}")
-        albums_with_tracks = []
+        albums_with_tracks: List[Tuple[Album, List[Track]]] = []
 
         try:
             # Validate folder_id exists
@@ -218,8 +227,12 @@ class DiscogsService:
         if self._user is None:
             self.authenticate()
 
+        # After authentication, check if user is properly set
+        if self._user is None:
+            raise AuthenticationError("Failed to authenticate user")
+
         logger.info("Fetching collection folders")
-        folders = []
+        folders: List[Dict[str, Any]] = []
 
         try:
             for folder in self._user.collection_folders:
@@ -240,8 +253,8 @@ class DiscogsService:
             raise SearchError(f"Failed to fetch collection folders: {e}")
 
     def _process_release_to_album(
-        self, release, release_num: int, total_releases: int
-    ) -> tuple:
+        self, release: Any, release_num: int, total_releases: int
+    ) -> Tuple[Optional[Album], List[Track]]:
         """Process a single release and return album with tracks."""
         logger.debug(
             f"Processing release {release_num}/{total_releases}: {release.title}"
@@ -289,7 +302,7 @@ class DiscogsService:
             return None, []
 
     def _process_release(
-        self, release, release_num: int, total_releases: int
+        self, release: Any, release_num: int, total_releases: int
     ) -> List[Track]:
         """Process a single release and extract tracks."""
         logger.info(
@@ -399,11 +412,14 @@ class DiscogsService:
 
         return None
 
-    def _safe_get_release_data(self, release, max_retries: int = 3) -> Optional[Dict]:
+    def _safe_get_release_data(
+        self, release: Any, max_retries: int = 3
+    ) -> Optional[Dict[str, Any]]:
         """Safely get release data with retry logic for API errors."""
         for attempt in range(max_retries):
             try:
-                return release.data
+                data = release.data
+                return cast(Dict[str, Any], data)
             except Exception as e:
                 error_msg = str(e).lower()
                 if "expecting value" in error_msg or "json" in error_msg:
@@ -425,11 +441,14 @@ class DiscogsService:
 
         return None
 
-    def _safe_get_tracklist(self, release, max_retries: int = 3) -> Optional[list]:
+    def _safe_get_tracklist(
+        self, release: Any, max_retries: int = 3
+    ) -> Optional[List[Any]]:
         """Safely get release tracklist with retry logic for API errors."""
         for attempt in range(max_retries):
             try:
-                return release.tracklist
+                tracklist = release.tracklist
+                return cast(List[Any], tracklist)
             except Exception as e:
                 error_msg = str(e).lower()
                 if "expecting value" in error_msg or "json" in error_msg:
@@ -459,7 +478,7 @@ class DiscogsService:
             output_dir.mkdir(parents=True, exist_ok=True)
 
             # Prepare metadata
-            metadata = {
+            metadata: Dict[str, Any] = {
                 "export_info": {
                     "timestamp": datetime.now().isoformat(),
                     "discogs_to_tidal_version": "0.2.0",
@@ -512,3 +531,73 @@ class DiscogsService:
 
         except Exception as e:
             logger.warning(f"Failed to save tracks metadata: {e}")
+
+    def _save_albums_to_json(
+        self, albums_with_tracks: List[Tuple[Album, List[Track]]], folder_id: int
+    ) -> None:
+        """Save albums metadata to JSON file."""
+        try:
+            # Create output directory
+            output_dir = Path("output")
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            # Prepare metadata
+            metadata: Dict[str, Any] = {
+                "export_info": {
+                    "timestamp": datetime.now().isoformat(),
+                    "discogs_to_tidal_version": "0.2.0",
+                    "folder_id": folder_id,
+                    "total_albums": len(albums_with_tracks),
+                },
+                "albums": [],
+            }
+
+            # Convert albums to dictionaries
+            for album, tracks in albums_with_tracks:
+                album_data = {
+                    "discogs_info": {
+                        "id": album.id,
+                        "title": album.title,
+                        "year": album.year,
+                        "genres": album.genres,
+                    },
+                    "artists": [
+                        {"id": artist.id, "name": artist.name}
+                        for artist in album.artists
+                    ],
+                    "primary_artist": {
+                        "id": album.primary_artist.id if album.primary_artist else None,
+                        "name": (
+                            album.primary_artist.name if album.primary_artist else None
+                        ),
+                    }
+                    if album.primary_artist
+                    else None,
+                    "tracks": [
+                        {
+                            "title": track.title,
+                            "track_number": track.track_number,
+                            "duration_seconds": track.duration,
+                            "duration_formatted": track.duration_formatted,
+                            "artists": [
+                                {"id": artist.id, "name": artist.name}
+                                for artist in track.artists
+                            ],
+                        }
+                        for track in tracks
+                    ],
+                    "track_count": len(tracks),
+                }
+                metadata["albums"].append(album_data)
+
+            # Save to file
+            filename = f"discogs_albums_folder_{folder_id}.json"
+            filepath = output_dir / filename
+
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(metadata, f, indent=2, ensure_ascii=False)
+
+            logger.info(f"✓ Albums metadata saved to {filepath}")
+
+        except Exception as e:
+            logger.warning(f"Failed to save albums metadata: {e}")

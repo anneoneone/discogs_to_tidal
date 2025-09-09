@@ -3,6 +3,7 @@ Command-line interface for Discogs to Tidal sync.
 """
 import logging
 from pathlib import Path
+from typing import Optional
 
 import click
 
@@ -19,7 +20,7 @@ from ..integrations.tidal.auth import TidalAuth
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
 @click.option("--debug", is_flag=True, help="Enable debug logging")
 @click.pass_context
-def cli(ctx, verbose, debug):
+def cli(ctx: click.Context, verbose: bool, debug: bool) -> None:
     """Discogs to Tidal playlist sync tool."""
     # Ensure context object exists
     ctx.ensure_object(dict)
@@ -63,7 +64,13 @@ def cli(ctx, verbose, debug):
     "--dry-run", is_flag=True, help="Show what would be synced without making changes"
 )
 @click.pass_context
-def sync(ctx, playlist_name, folder_id, limit, dry_run):
+def sync(
+    ctx: click.Context,
+    playlist_name: str,
+    folder_id: int,
+    limit: Optional[int],
+    dry_run: bool,
+) -> None:
     """Sync Discogs collection to Tidal playlist."""
     config = ctx.obj["config"]
 
@@ -81,7 +88,7 @@ def sync(ctx, playlist_name, folder_id, limit, dry_run):
         sync_service = SyncService(discogs_service, tidal_auth)
 
         # Set up progress callback for better UX
-        def auth_progress(message: str, progress: int):
+        def auth_progress(message: str, progress: int) -> None:
             if progress <= 30:
                 click.echo(f"🔐 {message}")
             elif progress <= 90:
@@ -94,7 +101,7 @@ def sync(ctx, playlist_name, folder_id, limit, dry_run):
         tidal_auth.authenticate()
 
         # Set up progress callback
-        def progress_callback(message: str):
+        def progress_callback(message: str) -> None:
             click.echo(f"⏳ {message}")
 
         # Perform sync
@@ -147,7 +154,7 @@ def sync(ctx, playlist_name, folder_id, limit, dry_run):
 
 @cli.command()
 @click.pass_context
-def test_auth(ctx):
+def test_auth(ctx: click.Context) -> None:
     """Test authentication with both services using improved authentication flow."""
     config = ctx.obj["config"]
 
@@ -165,7 +172,7 @@ def test_auth(ctx):
         tidal_service = TidalService(config)
 
         # Set up progress callback for authentication
-        def auth_progress(message: str, progress: int):
+        def auth_progress(message: str, progress: int) -> None:
             if progress <= 30:
                 click.echo(f"🔐 {message}")
             elif progress <= 90:
@@ -203,7 +210,7 @@ def test_auth(ctx):
 
 @cli.command()
 @click.pass_context
-def config_info(ctx):
+def config_info(ctx: click.Context) -> None:
     """Display configuration information."""
     config = ctx.obj["config"]
 
@@ -225,7 +232,7 @@ def config_info(ctx):
 
 @cli.command()
 @click.pass_context
-def list_folders(ctx):
+def list_folders(ctx: click.Context) -> None:
     """List available Discogs collection folders."""
     config = ctx.obj["config"]
 
