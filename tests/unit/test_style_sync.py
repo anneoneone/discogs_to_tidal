@@ -13,7 +13,13 @@ from discogs_to_tidal.integrations.tidal.client import TidalService
 @pytest.fixture
 def mock_config():
     """Mock configuration."""
-    return Mock(spec=Config)
+    config = Mock(spec=Config)
+    # Mock the tokens_dir property to return a proper Path-like object
+    config.tokens_dir = Mock()
+    config.tokens_dir.mkdir = Mock()
+    # Make tokens_dir behave like a Path for os.chmod
+    config.tokens_dir.__fspath__ = Mock(return_value="/tmp/mock_tokens")
+    return config
 
 
 @pytest.fixture
@@ -182,16 +188,25 @@ def test_create_style_based_playlists_handles_empty_input(tidal_service):
     results = tidal_service.create_style_based_playlists([], "Test Base")
 
     assert results == {}
-    # Should not call add_tracks_to_playlist
-    assert (
-        not hasattr(tidal_service, "add_tracks_to_playlist")
-        or tidal_service.add_tracks_to_playlist.call_count == 0
-    )
+    # Should not make any API calls for empty input
+    tidal_service.search_service.find_track.assert_not_called()
 
 
 def test_create_style_based_playlists_handles_tracks_without_albums():
     """Test handling of tracks without album information."""
-    tidal_service = TidalService(Mock())
+    # Create a properly mocked config
+    mock_config = Mock(spec=Config)
+    mock_config.tokens_dir = Mock()
+    mock_config.tokens_dir.mkdir = Mock()
+    mock_config.tokens_dir.__fspath__ = Mock(return_value="/tmp/mock_tokens")
+
+    tidal_service = TidalService(mock_config)
+
+    # Mock all dependencies to avoid real authentication
+    tidal_service._auth = Mock()
+    tidal_service._session = Mock()
+    tidal_service._get_all_playlists = Mock(return_value=[])
+    tidal_service._create_or_get_cached_playlist = Mock(return_value=Mock())
 
     # Mock search service
     tidal_service.search_service = Mock()
@@ -199,8 +214,8 @@ def test_create_style_based_playlists_handles_tracks_without_albums():
         return_value=Mock(id="mock_tidal_track")
     )
 
-    # Mock _add_cached_tracks_to_playlist
-    tidal_service._add_cached_tracks_to_playlist = Mock(
+    # Mock _add_cached_tracks_to_playlist_direct
+    tidal_service._add_cached_tracks_to_playlist_direct = Mock(
         return_value=SyncResult(
             success=True,
             total_tracks=1,
@@ -222,15 +237,30 @@ def test_create_style_based_playlists_handles_tracks_without_albums():
     # Should search for the track once
     tidal_service.search_service.find_track.assert_called_once_with(track)
 
-    # Should call _add_cached_tracks_to_playlist once
-    tidal_service._add_cached_tracks_to_playlist.assert_called_once_with(
-        "Base - Unknown Style", [track], [Mock(id="mock_tidal_track")]
+    # Should call _add_cached_tracks_to_playlist_direct once
+    # Note: the playlist parameter is mocked, so we use ANY to match any playlist
+    from unittest.mock import ANY
+
+    tidal_service._add_cached_tracks_to_playlist_direct.assert_called_once_with(
+        ANY, "Base - Unknown Style", [track], ANY
     )
 
 
 def test_create_style_based_playlists_duplicate_tracks_in_multiple_playlists():
     """Test tracks with multiple styles appear in multiple playlists with caching."""
-    tidal_service = TidalService(Mock())
+    # Create a properly mocked config
+    mock_config = Mock(spec=Config)
+    mock_config.tokens_dir = Mock()
+    mock_config.tokens_dir.mkdir = Mock()
+    mock_config.tokens_dir.__fspath__ = Mock(return_value="/tmp/mock_tokens")
+
+    tidal_service = TidalService(mock_config)
+
+    # Mock all dependencies to avoid real authentication
+    tidal_service._auth = Mock()
+    tidal_service._session = Mock()
+    tidal_service._get_all_playlists = Mock(return_value=[])
+    tidal_service._create_or_get_cached_playlist = Mock(return_value=Mock())
 
     # Mock search service to track calls and return consistent results
     search_calls = []
@@ -242,10 +272,10 @@ def test_create_style_based_playlists_duplicate_tracks_in_multiple_playlists():
     tidal_service.search_service = Mock()
     tidal_service.search_service.find_track = Mock(side_effect=track_search_calls)
 
-    # Mock _add_cached_tracks_to_playlist to track calls
+    # Mock _add_cached_tracks_to_playlist_direct to track calls
     call_log = []
 
-    def cached_add_calls(playlist_name: str, tracks, tidal_tracks):
+    def cached_add_calls(playlist, playlist_name: str, tracks, tidal_tracks):
         call_log.append(
             (playlist_name, len(tracks), [t.title for t in tracks], len(tidal_tracks))
         )
@@ -257,7 +287,9 @@ def test_create_style_based_playlists_duplicate_tracks_in_multiple_playlists():
             playlist_name=playlist_name,
         )
 
-    tidal_service._add_cached_tracks_to_playlist = Mock(side_effect=cached_add_calls)
+    tidal_service._add_cached_tracks_to_playlist_direct = Mock(
+        side_effect=cached_add_calls
+    )
 
     # Create album with multiple styles
     artist = Artist(name="Test Artist", id="1")

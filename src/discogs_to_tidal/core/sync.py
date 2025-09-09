@@ -443,3 +443,16 @@ class SyncService:
             error_msg = f"Failed to add tracks to {playlist_type} playlist: {e}"
             logger.error(error_msg)
             raise SyncError(error_msg)
+
+    def _clear_playlist_tracks(self, playlist: Any) -> None:
+        """Remove all tracks from a playlist."""
+        try:
+            existing_tracks = playlist.tracks()
+            if existing_tracks:
+                track_ids = [track.id for track in existing_tracks]
+                playlist.remove(track_ids)
+                logger.info(f"Removed {len(track_ids)} tracks from playlist")
+        except Exception as e:
+            error_msg = f"Failed to clear playlist tracks: {e}"
+            logger.error(error_msg)
+            raise SyncError(error_msg)

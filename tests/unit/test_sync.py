@@ -122,7 +122,9 @@ class TestSyncService(unittest.TestCase):
         result = sync_service._fetch_discogs_albums(0, mock_callback)
 
         self.assertEqual(result, mock_albums)
-        self.mock_discogs_service.get_collection_albums.assert_called_once_with(0)
+        self.mock_discogs_service.get_collection_albums.assert_called_once_with(
+            0, mock_callback
+        )
         mock_callback.assert_called_once_with(
             "Fetching Discogs collection (All folders)..."
         )

@@ -85,6 +85,11 @@ class TidalService:
             self._search_service = TidalSearchService(self.session)
         return self._search_service
 
+    @search_service.setter
+    def search_service(self, value: TidalSearchService) -> None:
+        """Set search service instance (mainly for testing)."""
+        self._search_service = value
+
     def create_or_get_playlist(
         self, name: str, description: str = ""
     ) -> tidalapi.Playlist:
